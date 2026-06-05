@@ -185,19 +185,34 @@
 
     .triplet-mark {
       position: absolute;
-      top: 0.1em;
+      top: 0.08em;
       left: 0.15em;
       right: 0.15em;
-      height: 0.42em;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 0.18em;
+      height: 0.45em;
+    }
+
+    .triplet-left,
+    .triplet-right {
+      flex: 1 1 auto;
+      height: 0.35em;
       border-top: 2px solid #111827;
+    }
+
+    .triplet-left {
       border-left: 2px solid #111827;
+    }
+
+    .triplet-right {
       border-right: 2px solid #111827;
-      text-align: center;
     }
 
     .triplet-num {
-      position: relative;
-      top: -0.68em;
+      flex: 0 0 auto;
+      margin-top: -0.48em;
       font-size: 0.58em;
       line-height: 1;
       font-weight: 800;
@@ -402,10 +417,10 @@
           const ch = bar[i];
 
           if (ch === "(") {
-            const close = bar.indexOf(")", i);
+              const close = bar.indexOf(")", i);
             if (close !== -1) {
               const inner = rhythmToSymbols(bar.slice(i + 1, close));
-              symbols.push(`<span class="triplet"><span class="triplet-mark"><span class="triplet-num">3</span></span><span class="triplet-notes">${inner}</span></span>`);
+              symbols.push(`<span class="triplet"><span class="triplet-mark"><span class="triplet-left"></span><span class="triplet-num">3</span><span class="triplet-right"></span></span><span class="triplet-notes">${inner}</span></span>`);
               i = close + 1;
               continue;
             }
