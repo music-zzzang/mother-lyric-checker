@@ -104,18 +104,30 @@ st.markdown(
     }
     .triplet-mark {
         position: absolute;
-        top: 0.1em;
+        top: 0.08em;
         left: 0.15em;
         right: 0.15em;
-        height: 0.42em;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 0.18em;
+        height: 0.45em;
+    }
+    .triplet-left,
+    .triplet-right {
+        flex: 1 1 auto;
+        height: 0.35em;
         border-top: 2px solid #111827;
+    }
+    .triplet-left {
         border-left: 2px solid #111827;
+    }
+    .triplet-right {
         border-right: 2px solid #111827;
-        text-align: center;
     }
     .triplet-num {
-        position: relative;
-        top: -0.68em;
+        flex: 0 0 auto;
+        margin-top: -0.48em;
         font-size: 13px;
         line-height: 1;
         font-weight: 800;
@@ -189,7 +201,8 @@ def rhythm_to_symbols(code: str) -> str:
                 if close != -1:
                     inner = rhythm_to_symbols(bar[i + 1:close])
                     symbols.append(
-                        f'<span class="triplet"><span class="triplet-mark"><span class="triplet-num">3</span></span>'
+                        f'<span class="triplet"><span class="triplet-mark"><span class="triplet-left"></span>'
+                        f'<span class="triplet-num">3</span><span class="triplet-right"></span></span>'
                         f'<span class="triplet-notes">{inner}</span></span>'
                     )
                     i = close + 1
