@@ -94,6 +94,21 @@ st.markdown(
         color: #4b5563;
         margin-top: 6px;
     }
+    .triplet {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        vertical-align: middle;
+        margin: 0 2px;
+    }
+    .triplet-num {
+        font-size: 14px;
+        line-height: 1;
+        font-weight: 700;
+    }
+    .triplet-notes {
+        line-height: 1.1;
+    }
     </style>
     <div class="flow-wrap">
         <div class="flow-title">AI 가사 점검 흐름</div>
@@ -133,7 +148,7 @@ RHYTHM_CODES = {
 }
 
 RHYTHM_SYMBOLS = {
-    "1": "♬",
+    "1": "𝅘𝅥𝅯",
     "2": "♪",
     "3": "♪.",
     "4": "♩",
@@ -154,6 +169,17 @@ def rhythm_to_symbols(code: str) -> str:
         while i < len(bar):
             ch = bar[i]
 
+            if ch == "(":
+                close = bar.find(")", i)
+                if close != -1:
+                    inner = rhythm_to_symbols(bar[i + 1:close])
+                    symbols.append(
+                        f'<span class="triplet"><span class="triplet-num">3</span>'
+                        f'<span class="triplet-notes">{inner}</span></span>'
+                    )
+                    i = close + 1
+                    continue
+
             if ch == "-":
                 if i + 1 < len(bar) and bar[i + 1] == "4":
                     symbols.append("𝄽")
@@ -170,14 +196,10 @@ def rhythm_to_symbols(code: str) -> str:
                         symbol += "."
                     i += 1
                 symbols.append(symbol)
-            elif ch == "(":
-                symbols.append("(")
-            elif ch == ")":
-                symbols.append(")")
 
             i += 1
 
-        bars.append(" ".join(symbols).replace("( ", "(").replace(" )", ")"))
+        bars.append(" ".join(symbols))
 
     return " / ".join(bars)
 
