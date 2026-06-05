@@ -1,4 +1,4 @@
-import re
+﻿import re
 import streamlit as st
 
 st.set_page_config(page_title="어머니의 마음 가사 점검기", page_icon="🎵", layout="centered")
@@ -69,6 +69,31 @@ st.markdown(
         background: #244f70;
         color: #ffffff;
     }
+    .rhythm-box {
+        border: 1px solid #d8e0ea;
+        border-radius: 8px;
+        padding: 14px 16px;
+        margin: 10px 0 18px 0;
+        background: #f8fafc;
+    }
+    .rhythm-title {
+        font-size: 17px;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 6px;
+    }
+    .rhythm-symbols {
+        font-size: 24px;
+        line-height: 1.6;
+        color: #111827;
+        letter-spacing: 0;
+        word-break: keep-all;
+    }
+    .rhythm-counts {
+        font-size: 16px;
+        color: #4b5563;
+        margin-top: 6px;
+    }
     </style>
     <div class="flow-wrap">
         <div class="flow-title">AI 가사 점검 흐름</div>
@@ -106,6 +131,50 @@ RHYTHM_CODES = {
     5: "3144 / (222)8 / 6222 / 8-4",
     6: "2244 / (222)44 / 6222 / 8-4",
 }
+
+RHYTHM_SYMBOLS = {
+    "1": "♬",
+    "2": "♪",
+    "3": "♪.",
+    "4": "♩",
+    "6": "♩.",
+    "8": "𝅗𝅥",
+}
+
+
+def rhythm_to_symbols(code: str) -> str:
+    """숫자 리듬코드를 학생이 볼 리듬꼴 기호로 바꾼다."""
+    bars = []
+
+    for bar in code.split("/"):
+        bar = bar.strip()
+        symbols = []
+        i = 0
+
+        while i < len(bar):
+            ch = bar[i]
+
+            if ch == "-":
+                if i + 1 < len(bar) and bar[i + 1] == "4":
+                    symbols.append("𝄽")
+                    i += 2
+                else:
+                    symbols.append("-")
+                    i += 1
+                continue
+
+            if ch in RHYTHM_SYMBOLS:
+                symbols.append(RHYTHM_SYMBOLS[ch])
+            elif ch == "(":
+                symbols.append("(")
+            elif ch == ")":
+                symbols.append(")")
+
+            i += 1
+
+        bars.append(" ".join(symbols).replace("( ", "(").replace(" )", ")"))
+
+    return " / ".join(bars)
 
 # 세션 저장
 if "saved_lines" not in st.session_state:
@@ -202,7 +271,16 @@ def expression_feedback(parts, line_num: int) -> dict[str, list[str]]:
 # -----------------------------
 
 line_num = st.selectbox("점검할 줄을 선택하세요", [1, 2, 3, 4, 5, 6])
-st.caption(f"{line_num}줄 리듬: {RHYTHM_CODES[line_num]}  |  기준 글자수: {' / '.join(map(str, LINE_RULES[line_num]))}")
+st.markdown(
+    f"""
+    <div class="rhythm-box">
+        <div class="rhythm-title">{line_num}줄 리듬</div>
+        <div class="rhythm-symbols">{rhythm_to_symbols(RHYTHM_CODES[line_num])}</div>
+        <div class="rhythm-counts">기준 글자수: {' / '.join(map(str, LINE_RULES[line_num]))}</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 lyrics = st.text_input("가사를 입력하세요", placeholder="예: 앞-으로/엄마아빠/께효도하면/서")
 
