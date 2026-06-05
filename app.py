@@ -126,7 +126,7 @@ LINE_RULES = {
 RHYTHM_CODES = {
     1: "444 / 6222 / 6222 / 84",
     2: "6222 / 6222 / 6222 / 8-4",
-    3: "3144 / 3144 / 61122 / 8-4",
+    3: "3144 / 3144 / 61122. / 8-4",
     4: "3144 / (222)44 / 2222211 / 8-4",
     5: "3144 / (222)8 / 6222 / 8-4",
     6: "2244 / (222)44 / 6222 / 8-4",
@@ -164,7 +164,12 @@ def rhythm_to_symbols(code: str) -> str:
                 continue
 
             if ch in RHYTHM_SYMBOLS:
-                symbols.append(RHYTHM_SYMBOLS[ch])
+                symbol = RHYTHM_SYMBOLS[ch]
+                if i + 1 < len(bar) and bar[i + 1] == ".":
+                    if not symbol.endswith("."):
+                        symbol += "."
+                    i += 1
+                symbols.append(symbol)
             elif ch == "(":
                 symbols.append("(")
             elif ch == ")":
