@@ -89,6 +89,31 @@ st.markdown(
         letter-spacing: 0;
         word-break: keep-all;
     }
+    .note {
+        display: inline-block;
+        line-height: 1;
+        margin-right: 0.1em;
+        vertical-align: baseline;
+    }
+    .note-tight {
+        margin-right: 0.08em;
+    }
+    .note-quarter {
+        margin-right: 0.2em;
+    }
+    .note-dotted-quarter {
+        margin-right: 0.3em;
+    }
+    .note-half {
+        margin-right: 0.42em;
+    }
+    .note-rest {
+        margin-right: 0.2em;
+    }
+    .bar-sep {
+        display: inline-block;
+        margin: 0 0.3em 0 0.04em;
+    }
     .rhythm-counts {
         font-size: 16px;
         color: #4b5563;
@@ -135,6 +160,9 @@ st.markdown(
     }
     .triplet-notes {
         line-height: 1;
+    }
+    .triplet-notes .note {
+        margin-right: 0.06em;
     }
     </style>
     <div class="flow-wrap">
@@ -184,6 +212,19 @@ RHYTHM_SYMBOLS = {
 }
 
 
+def note_html(symbol: str, code: str) -> str:
+    spacing_class = {
+        "1": "note-tight",
+        "2": "note-tight",
+        "3": "note-tight",
+        "4": "note-quarter",
+        "6": "note-dotted-quarter",
+        "8": "note-half",
+        "rest": "note-rest",
+    }.get(code, "note-tight")
+    return f'<span class="note {spacing_class}">{symbol}</span>'
+
+
 def rhythm_to_symbols(code: str) -> str:
     """숫자 리듬코드를 학생이 볼 리듬꼴 기호로 바꾼다."""
     bars = []
@@ -210,7 +251,7 @@ def rhythm_to_symbols(code: str) -> str:
 
             if ch == "-":
                 if i + 1 < len(bar) and bar[i + 1] == "4":
-                    symbols.append("𝄽")
+                    symbols.append(note_html("𝄽", "rest"))
                     i += 2
                 else:
                     symbols.append("-")
@@ -223,13 +264,13 @@ def rhythm_to_symbols(code: str) -> str:
                     if not symbol.endswith("."):
                         symbol += "."
                     i += 1
-                symbols.append(symbol)
+                symbols.append(note_html(symbol, ch))
 
             i += 1
 
-        bars.append(" ".join(symbols))
+        bars.append("".join(symbols))
 
-    return " / ".join(bars)
+    return '<span class="bar-sep">/</span>'.join(bars)
 
 # 세션 저장
 if "saved_lines" not in st.session_state:
