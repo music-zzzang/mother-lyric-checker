@@ -105,10 +105,10 @@ st.markdown(
         margin-right: 0.3em;
     }
     .note-half {
-        margin-right: 0.42em;
+        margin-right: 0.78em;
     }
     .note-rest {
-        margin-right: 0.2em;
+        margin-right: 0.28em;
     }
     .bar-sep {
         display: inline-block;
