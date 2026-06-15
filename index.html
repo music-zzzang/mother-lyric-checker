@@ -505,8 +505,29 @@
     }
 
     function thirdMadiWarning(parts) {
+      const second = meaningText(parts[1].trim());
       const third = meaningText(parts[2].trim());
       if (!third) return null;
+
+      const boundarySplits = [
+        ["바", "쁘", "바쁘"],
+        ["기", "쁘", "기쁘"],
+        ["아", "름", "아름"],
+        ["고", "마", "고마"],
+        ["사", "랑", "사랑"],
+        ["미", "안", "미안"],
+        ["소", "중", "소중"],
+        ["어", "머", "어머"],
+        ["아", "버", "아버"],
+        ["할", "머", "할머"],
+        ["할", "아", "할아"],
+      ];
+
+      for (const [tail, head, word] of boundarySplits) {
+        if (second.endsWith(tail) && third.startsWith(head)) {
+          return `2마디와 3마디 사이에서 ‘${word}’로 이어지는 말이 끊어져 보여요. 2마디 끝과 3마디 시작은 되도록 의미 단위가 나뉘도록 고쳐 보세요.`;
+        }
+      }
 
       const safeStarts = [
         "고생", "고마", "고맙", "고운", "고된", "고요",
