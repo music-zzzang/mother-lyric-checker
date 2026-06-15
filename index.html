@@ -534,7 +534,6 @@
     const MEMORY_WORDS = ["추억", "기억", "함께", "항상", "매일", "아침", "저녁", "손", "길", "집", "웃", "응원", "고생", "보살", "키워", "지켜", "건강"];
     const ENDING_CUES = ["해요", "어요", "아요", "세요", "예요", "이에요", "니다", "줘요", "나요"];
     const ACTION_WORDS = ["드려", "드릴", "하고", "하며", "되어", "되고", "보며", "보면", "웃어", "안아", "도와", "지켜", "키워", "응원", "전하", "말하"];
-    const WEAK_ENDINGS = ["은", "는", "이", "가", "을", "를", "에", "께", "와", "과", "의", "로", "으로", "고", "며", "서", "면", "니", "나", "라", "하", "지", "겠"];
 
     function contentShapeWarning(text) {
       const clean = meaningText(text);
@@ -558,10 +557,6 @@
 
       if (familyHits >= 2 && !hasEmotionWord && !hasMemoryWord && !hasActionWord) {
         return "가족을 부르는 말만 반복되어 뜻이 잘 이어지지 않아요. 가족에게 하고 싶은 말이나 기억나는 장면을 넣어 보세요.";
-      }
-
-      if (WEAK_ENDINGS.some((word) => clean.endsWith(word))) {
-        return "줄글처럼 읽었을 때 끝말이 덜 끝난 느낌이에요. 마지막 마디까지 뜻이 이어지도록 고쳐 보세요.";
       }
 
       const cueWords = [...EMOTION_WORDS, ...FAMILY_WORDS, ...MEMORY_WORDS];
