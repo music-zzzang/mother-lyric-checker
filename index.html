@@ -529,6 +529,11 @@
         }
       }
 
+      const safeSeonStarts = ["선물", "선생", "선율", "선한", "선명", "선뜻", "선하게"];
+      if (second.endsWith("에") && third.startsWith("선") && !safeSeonStarts.some((word) => third.startsWith(word))) {
+        return "3마디가 ‘선’으로 시작해요. ‘우리집에선’처럼 앞말에 붙어야 자연스러운 말입니다. 2마디와 3마디 사이에서는 의미가 나뉘도록 고쳐 보세요.";
+      }
+
       const safeStarts = [
         "고생", "고마", "고맙", "고운", "고된", "고요",
         "가족", "가득", "가장", "가끔",
