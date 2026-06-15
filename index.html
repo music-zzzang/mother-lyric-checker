@@ -353,6 +353,8 @@
         <div class="flow-arrow">→</div>
         <div class="flow-box">말 흐름 점검</div>
         <div class="flow-arrow">→</div>
+        <div class="flow-box">내용 점검</div>
+        <div class="flow-arrow">→</div>
         <div class="flow-box">자기 수정</div>
       </div>
     </section>
@@ -527,6 +529,62 @@
       return null;
     }
 
+    const EMOTION_WORDS = ["감사", "고마", "고맙", "사랑", "존경", "미안", "소중", "행복", "마음", "효도"];
+    const FAMILY_WORDS = ["엄마", "아빠", "어머니", "아버지", "부모", "부모님", "가족", "할머니", "할아버지"];
+    const MEMORY_WORDS = ["추억", "기억", "함께", "항상", "매일", "아침", "저녁", "손", "길", "집", "웃", "응원", "고생", "보살", "키워", "지켜", "건강"];
+    const ENDING_CUES = ["해요", "어요", "아요", "세요", "예요", "이에요", "니다", "줘요", "나요"];
+
+    function contentShapeWarning(text) {
+      const clean = meaningText(text);
+      if (clean.length < 6) return null;
+
+      if (/(.)\1{4,}/.test(clean)) {
+        return "같은 글자가 많이 반복되어 가사의 뜻을 알기 어려워요. 전하고 싶은 말을 문장처럼 다시 써 보세요.";
+      }
+
+      const uniqueCount = new Set([...clean]).size;
+      if (clean.length >= 8 && uniqueCount <= 2) {
+        return "몇 글자만 반복되어 가사의 뜻을 알기 어려워요. 가족에게 전하고 싶은 말을 넣어 다시 써 보세요.";
+      }
+
+      const cueWords = [...EMOTION_WORDS, ...FAMILY_WORDS, ...MEMORY_WORDS];
+      const hasCue = cueWords.some((word) => clean.includes(word));
+      const hasEnding = ENDING_CUES.some((word) => clean.includes(word));
+      const particleCount = (clean.match(/은|는|이|가|을|를|에|께|에게|한테|와|과|도|로|으로|의/g) || []).length;
+
+      if (clean.length >= 8 && !hasCue && !hasEnding && particleCount < 2) {
+        return "글자 수는 맞지만 단어들이 뜻으로 잘 이어지지 않는 것 같아요. 줄글처럼 읽어 보고 의미가 통하도록 고쳐 보세요.";
+      }
+
+      return null;
+    }
+
+    function fullSongFeedback() {
+      const lines = Object.values(savedLines).filter(Boolean);
+      if (lines.length !== 6) return "";
+
+      const joined = lines.map(meaningText).join("");
+      const hasEmotion = EMOTION_WORDS.some((word) => joined.includes(word));
+      const hasFamily = FAMILY_WORDS.some((word) => joined.includes(word));
+      const hasMemory = MEMORY_WORDS.some((word) => joined.includes(word));
+
+      if (!hasEmotion && !hasFamily && !hasMemory) {
+        return `
+          <h3><span class="yellow-dot"></span>전체 가사 다시 보기</h3>
+          <div class="message warning">6줄 전체를 이어 읽었을 때 가족에게 전하고 싶은 마음이나 추억이 잘 드러나지 않아요. 감사한 일, 기억나는 장면, 하고 싶은 말을 한 가지 이상 넣어 보세요.</div>
+        `;
+      }
+
+      if (!hasEmotion) {
+        return `
+          <h3><span class="yellow-dot"></span>전체 가사 다시 보기</h3>
+          <div class="message warning">6줄 전체를 이어 읽으며 감사, 사랑, 미안함, 고마움 같은 마음이 더 분명하게 드러나는지 확인해 보세요.</div>
+        `;
+      }
+
+      return `<div class="message info">6줄 전체에서 가족에게 전하고 싶은 마음이 어느 정도 드러나요. 이제 실제로 불러 보며 자연스러운지 확인해 보세요.</div>`;
+    }
+
     function expressionFeedback(parts, lineNum) {
       const strong = [];
       const soft = [];
@@ -535,12 +593,14 @@
 
       if (warning) strong.push(warning);
 
+      const shapeWarning = contentShapeWarning(joined);
+      if (shapeWarning) strong.push(shapeWarning);
+
       if (joined.includes("엄마빠")) {
         strong.push("‘엄마빠’는 줄임말처럼 들릴 수 있어요. 같은 4글자인 ‘엄마아빠’로 고쳐 부르는 것이 좋습니다.");
       }
 
-      const emotionWords = ["감사", "고마", "고맙", "사랑", "존경", "미안", "소중", "행복", "마음", "효도"];
-      const hasEmotion = emotionWords.some((word) => joined.includes(word));
+      const hasEmotion = EMOTION_WORDS.some((word) => joined.includes(word));
 
       if ([5, 6].includes(lineNum) && !hasEmotion) {
         soft.push("마무리 부분에서는 감사, 사랑, 고마움 같은 마음이 조금 더 드러나면 좋아요.");
@@ -650,6 +710,7 @@
         .join("");
 
       savedLines[lineNum] = normalizeLine(parts);
+      const fullFeedbackHtml = fullSongFeedback();
       result.innerHTML = `
         ${title}
         <div class="message success">글자수는 맞아요. 기준 ${rules.join("/")}에 맞게 썼어요.</div>
@@ -658,6 +719,7 @@
           ${detailRows}
         </details>
         ${feedbackHtml}
+        ${fullFeedbackHtml}
         <h3>➡️ 다음 입력</h3>
         <p>${lineNum < 6 ? `${lineNum + 1}줄 내용을 넣으세요.` : "6줄까지 점검했습니다. 전체 가사를 이어서 불러 보며 자연스러운지 확인해 보세요."}</p>
       `;
