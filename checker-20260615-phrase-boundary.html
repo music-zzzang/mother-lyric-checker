@@ -1,0 +1,779 @@
+﻿<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>어머니의 마음 가사 점검기</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #202434;
+      --muted: #657184;
+      --blue: #2f6690;
+      --blue-soft: #f7fbff;
+      --blue-line: #8fb9dc;
+      --red: #d71920;
+      --orange: #e8753f;
+      --yellow-bg: #fff9dd;
+      --green-bg: #eaf7ed;
+      --line: #d7dee8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #ffffff;
+      color: var(--ink);
+      font-family: "Segoe UI", "Malgun Gothic", Arial, sans-serif;
+      line-height: 1.55;
+    }
+
+    main {
+      width: min(760px, calc(100% - 32px));
+      margin: 32px auto 56px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(2rem, 5vw, 3.1rem);
+      line-height: 1.1;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 30px 0 12px;
+      font-size: 1.7rem;
+      line-height: 1.2;
+      font-weight: 800;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 1.45rem;
+      line-height: 1.25;
+      font-weight: 800;
+    }
+
+    p {
+      margin: 0 0 16px;
+    }
+
+    label {
+      display: block;
+      margin: 20px 0 8px;
+      font-weight: 650;
+    }
+
+    select,
+    input {
+      width: 100%;
+      min-height: 42px;
+      border: 2.5px solid var(--red);
+      border-radius: 7px;
+      background: #ffffff;
+      color: var(--ink);
+      font: inherit;
+      padding: 8px 12px;
+      outline: none;
+    }
+
+    select:focus,
+    input:focus {
+      border-color: #b51218;
+      box-shadow: 0 0 0 3px rgba(215, 25, 32, 0.16);
+    }
+
+    button {
+      margin-top: 16px;
+      border: 1px solid var(--blue);
+      background: var(--blue);
+      color: #ffffff;
+      font: inherit;
+      font-weight: 800;
+      border-radius: 7px;
+      padding: 9px 18px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #244f70;
+      border-color: #244f70;
+    }
+
+    .lead {
+      color: #33384a;
+    }
+
+    .flow-wrap {
+      margin: 22px 0 26px;
+      padding: 16px;
+      border: 1px solid var(--blue-line);
+      border-radius: 8px;
+      background: var(--blue-soft);
+    }
+
+    .flow-title {
+      margin-bottom: 12px;
+      color: var(--blue);
+      font-weight: 800;
+    }
+
+    .flow-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+
+    .flow-box {
+      border: 1px solid var(--blue-line);
+      border-radius: 6px;
+      padding: 7px 10px;
+      background: #ffffff;
+      color: #1f3f5b;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .flow-arrow {
+      color: #5f92bd;
+      font-weight: 800;
+      font-size: 1.1rem;
+    }
+
+    .rhythm-box {
+      margin: 12px 0 20px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fafc;
+    }
+
+    .rhythm-title {
+      margin-bottom: 6px;
+      color: var(--ink);
+      font-size: 1.08rem;
+      font-weight: 800;
+    }
+
+    .rhythm-symbols {
+      color: #111827;
+      font-size: 1.55rem;
+      line-height: 1.6;
+      letter-spacing: 0;
+      word-break: keep-all;
+    }
+
+    .note {
+      display: inline-block;
+      line-height: 1;
+      margin-right: 0.1em;
+      vertical-align: baseline;
+    }
+
+    .note-tight {
+      margin-right: 0.08em;
+    }
+
+    .note-quarter {
+      margin-right: 0.2em;
+    }
+
+    .note-dotted-quarter {
+      margin-right: 0.3em;
+    }
+
+    .note-half {
+      margin-right: 0.78em;
+    }
+
+    .note-rest {
+      margin-right: 0.28em;
+    }
+
+    .bar-sep {
+      display: inline-block;
+      margin: 0 0.3em 0 0.04em;
+    }
+
+    .rhythm-counts {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .triplet {
+      display: inline-block;
+      position: relative;
+      padding-top: 0.8em;
+      margin: 0 3px;
+      vertical-align: baseline;
+      line-height: 1;
+    }
+
+    .triplet-mark {
+      position: absolute;
+      top: 0.08em;
+      left: 0.15em;
+      right: 0.15em;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 0.18em;
+      height: 0.45em;
+    }
+
+    .triplet-left,
+    .triplet-right {
+      flex: 1 1 auto;
+      height: 0.35em;
+      border-top: 2px solid #111827;
+    }
+
+    .triplet-left {
+      border-left: 2px solid #111827;
+    }
+
+    .triplet-right {
+      border-right: 2px solid #111827;
+    }
+
+    .triplet-num {
+      flex: 0 0 auto;
+      margin-top: -0.48em;
+      font-size: 0.58em;
+      line-height: 1;
+      font-weight: 800;
+      color: #111827;
+    }
+
+    .triplet-notes {
+      line-height: 1;
+    }
+
+    .triplet-notes .note {
+      margin-right: 0.06em;
+    }
+
+    .message {
+      margin: 18px 0;
+      padding: 14px 16px;
+      border-radius: 8px;
+      font-weight: 650;
+    }
+
+    .success {
+      background: var(--green-bg);
+      color: #26703a;
+    }
+
+    .error {
+      background: #fff0f0;
+      color: #a20f18;
+    }
+
+    .warning {
+      background: var(--yellow-bg);
+      color: #856100;
+      font-weight: 600;
+    }
+
+    .info {
+      background: #eef5ff;
+      color: #244f70;
+    }
+
+    details {
+      margin: 16px 0;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 11px 14px;
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 650;
+    }
+
+    ul {
+      margin: 8px 0 0 20px;
+      padding: 0;
+    }
+
+    li {
+      margin: 9px 0;
+    }
+
+    hr {
+      margin: 32px 0;
+      border: 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .orange-dot,
+    .yellow-dot {
+      display: inline-block;
+      width: 1.1em;
+      height: 1.1em;
+      margin-right: 0.35em;
+      border-radius: 50%;
+      vertical-align: -0.12em;
+    }
+
+    .orange-dot {
+      background: radial-gradient(circle at 30% 30%, #ffd2b3, var(--orange));
+    }
+
+    .yellow-dot {
+      background: radial-gradient(circle at 30% 30%, #fff2a8, #d2a22e);
+    }
+
+    .saved-line {
+      margin: 16px 0;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>🎵 어머니의 마음 가사 점검기</h1>
+    <p class="lead">한 줄의 가사를 4마디로 나누어 입력하면 글자수와 말의 흐름을 점검합니다.</p>
+
+    <section class="flow-wrap" aria-label="AI 가사 점검 흐름">
+      <div class="flow-title">AI 가사 점검 흐름</div>
+      <div class="flow-row">
+        <div class="flow-box">줄 선택</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box">가사 입력</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box">글자수 점검</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box">말 흐름 점검</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box">내용 점검</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box">자기 수정</div>
+      </div>
+    </section>
+
+    <label for="lineNum">점검할 줄을 선택하세요</label>
+    <select id="lineNum">
+      <option value="1">1</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+      <option value="6">6</option>
+    </select>
+    <div id="rhythmCaption" class="rhythm-box"></div>
+
+    <label for="lyrics">가사를 입력하세요</label>
+    <input id="lyrics" type="text" placeholder="예: 앞-으로/엄마아빠/께효도하면/서">
+
+    <button id="checkBtn" type="button">검사하기</button>
+
+    <section id="result" aria-live="polite"></section>
+
+    <section id="savedArea" hidden>
+      <hr>
+      <h2>🎼 지금까지 입력한 가사</h2>
+      <div id="savedLines"></div>
+    </section>
+  </main>
+
+  <script>
+    const LINE_RULES = {
+      1: [3, 4, 4, 2],
+      2: [4, 4, 4, 1],
+      3: [4, 4, 5, 1],
+      4: [4, 5, 7, 1],
+      5: [4, 4, 4, 1],
+      6: [4, 5, 4, 1],
+    };
+
+    const RHYTHM_CODES = {
+      1: "444 / 6222 / 6222 / 84",
+      2: "6222 / 6222 / 6222 / 8-4",
+      3: "3144 / 3144 / 61122 / 8-4",
+      4: "3144 / (222)44 / 2222211 / 8-4",
+      5: "3144 / (222)8 / 6222 / 8-4",
+      6: "2244 / (222)44 / 6222 / 8-4",
+    };
+
+    const RHYTHM_SYMBOLS = {
+      "1": "𝅘𝅥𝅯",
+      "2": "♪",
+      "3": "♪.",
+      "4": "♩",
+      "6": "♩.",
+      "8": "𝅗𝅥",
+    };
+
+    function noteHtml(symbol, code) {
+      const spacingClass = {
+        "1": "note-tight",
+        "2": "note-tight",
+        "3": "note-tight",
+        "4": "note-quarter",
+        "6": "note-dotted-quarter",
+        "8": "note-half",
+        rest: "note-rest",
+      }[code] || "note-tight";
+      return `<span class="note ${spacingClass}">${symbol}</span>`;
+    }
+
+    const savedLines = { 1: "", 2: "", 3: "", 4: "", 5: "", 6: "" };
+    const lineSelect = document.getElementById("lineNum");
+    const lyricsInput = document.getElementById("lyrics");
+    const rhythmCaption = document.getElementById("rhythmCaption");
+    const result = document.getElementById("result");
+    const savedArea = document.getElementById("savedArea");
+    const savedLinesBox = document.getElementById("savedLines");
+
+    function escapeHtml(text) {
+      return String(text)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function countChars(text) {
+      return Array.from(text).filter((ch) => ch === "-" || (ch >= "가" && ch <= "힣")).length;
+    }
+
+    function countedText(text) {
+      return Array.from(text).filter((ch) => ch === "-" || (ch >= "가" && ch <= "힣")).join("");
+    }
+
+    function meaningText(text) {
+      return Array.from(text).filter((ch) => ch >= "가" && ch <= "힣").join("");
+    }
+
+    function normalizeLine(parts) {
+      return parts.map((part) => part.trim()).join("/");
+    }
+
+    function rhythmToSymbols(code) {
+      return code.split("/").map((rawBar) => {
+        const bar = rawBar.trim();
+        const symbols = [];
+        let i = 0;
+
+        while (i < bar.length) {
+          const ch = bar[i];
+
+          if (ch === "(") {
+              const close = bar.indexOf(")", i);
+            if (close !== -1) {
+              const inner = rhythmToSymbols(bar.slice(i + 1, close));
+              symbols.push(`<span class="triplet"><span class="triplet-mark"><span class="triplet-left"></span><span class="triplet-num">3</span><span class="triplet-right"></span></span><span class="triplet-notes">${inner}</span></span>`);
+              i = close + 1;
+              continue;
+            }
+          }
+
+          if (ch === "-") {
+            if (bar[i + 1] === "4") {
+              symbols.push(noteHtml("𝄽", "rest"));
+              i += 2;
+            } else {
+              symbols.push("-");
+              i += 1;
+            }
+            continue;
+          }
+
+          if (RHYTHM_SYMBOLS[ch]) {
+            let symbol = RHYTHM_SYMBOLS[ch];
+            if (bar[i + 1] === ".") {
+              if (!symbol.endsWith(".")) symbol += ".";
+              i += 1;
+            }
+            symbols.push(noteHtml(symbol, ch));
+          }
+
+          i += 1;
+        }
+
+        return symbols.join("");
+      }).join('<span class="bar-sep">/</span>');
+    }
+
+    function thirdMadiWarning(parts) {
+      const second = meaningText(parts[1].trim());
+      const third = meaningText(parts[2].trim());
+      if (!third) return null;
+
+      const boundarySplits = [
+        ["바", "쁘", "바쁘"],
+        ["기", "쁘", "기쁘"],
+        ["아", "름", "아름"],
+        ["고", "마", "고마"],
+        ["사", "랑", "사랑"],
+        ["미", "안", "미안"],
+        ["소", "중", "소중"],
+        ["어", "머", "어머"],
+        ["아", "버", "아버"],
+        ["할", "머", "할머"],
+        ["할", "아", "할아"],
+      ];
+
+      for (const [tail, head, word] of boundarySplits) {
+        if (second.endsWith(tail) && third.startsWith(head)) {
+          return `2마디와 3마디 사이에서 ‘${word}’로 이어지는 말이 끊어져 보여요. 2마디 끝과 3마디 시작은 되도록 의미 단위가 나뉘도록 고쳐 보세요.`;
+        }
+      }
+
+      const safeSeonStarts = ["선물", "선생", "선율", "선한", "선명", "선뜻", "선하게"];
+      if (second.endsWith("에") && third.startsWith("선") && !safeSeonStarts.some((word) => third.startsWith(word))) {
+        return "3마디가 ‘선’으로 시작해요. ‘우리집에선’처럼 앞말에 붙어야 자연스러운 말입니다. 2마디와 3마디 사이에서는 의미가 나뉘도록 고쳐 보세요.";
+      }
+
+      const safeStarts = [
+        "고생", "고마", "고맙", "고운", "고된", "고요",
+        "가족", "가득", "가장", "가끔",
+        "이제", "이런", "이렇게", "이만",
+      ];
+      if (safeStarts.some((word) => third.startsWith(word))) return null;
+
+      const weakStarts = [
+        "에게", "한테", "으로", "께",
+        "는", "은", "이", "가", "를", "을", "에", "도", "의", "와", "과", "로",
+        "고", "며", "서", "니", "다", "요",
+      ].sort((a, b) => b.length - a.length);
+
+      for (const word of weakStarts) {
+        if (third.startsWith(word)) {
+          return `3마디가 ‘${word}’로 시작해요. ‘우리집에서’처럼 앞말에 붙어야 자연스러운 말입니다. 이 부분은 고쳐 보는 것이 좋습니다.`;
+        }
+      }
+      return null;
+    }
+
+    const EMOTION_WORDS = ["감사", "고마", "고맙", "사랑", "존경", "미안", "소중", "행복", "마음", "효도"];
+    const FAMILY_WORDS = ["엄마", "아빠", "어머니", "아버지", "부모", "부모님", "가족", "할머니", "할아버지"];
+    const MEMORY_WORDS = ["추억", "기억", "함께", "항상", "매일", "아침", "저녁", "손", "길", "집", "웃", "응원", "고생", "보살", "키워", "지켜", "건강"];
+    const ENDING_CUES = ["해요", "어요", "아요", "세요", "예요", "이에요", "니다", "줘요", "나요"];
+    const ACTION_WORDS = ["드려", "드릴", "하고", "하며", "되어", "되고", "보며", "보면", "웃어", "안아", "도와", "지켜", "키워", "응원", "전하", "말하"];
+
+    function contentShapeWarning(text) {
+      const clean = meaningText(text);
+      if (clean.length < 6) return null;
+
+      if (/(.)\1{4,}/.test(clean)) {
+        return "같은 글자가 많이 반복되어 가사의 뜻을 알기 어려워요. 전하고 싶은 말을 문장처럼 다시 써 보세요.";
+      }
+
+      const uniqueCount = new Set([...clean]).size;
+      if (clean.length >= 8 && uniqueCount <= 2) {
+        return "몇 글자만 반복되어 가사의 뜻을 알기 어려워요. 가족에게 전하고 싶은 말을 넣어 다시 써 보세요.";
+      }
+
+      const familyHits = FAMILY_WORDS.reduce((sum, word) => {
+        return sum + (clean.match(new RegExp(word, "g")) || []).length;
+      }, 0);
+      const hasEmotionWord = EMOTION_WORDS.some((word) => clean.includes(word));
+      const hasMemoryWord = MEMORY_WORDS.some((word) => clean.includes(word));
+      const hasActionWord = ACTION_WORDS.some((word) => clean.includes(word));
+
+      if (familyHits >= 2 && !hasEmotionWord && !hasMemoryWord && !hasActionWord) {
+        return "가족을 부르는 말만 반복되어 뜻이 잘 이어지지 않아요. 가족에게 하고 싶은 말이나 기억나는 장면을 넣어 보세요.";
+      }
+
+      const cueWords = [...EMOTION_WORDS, ...FAMILY_WORDS, ...MEMORY_WORDS];
+      const hasCue = cueWords.some((word) => clean.includes(word));
+      const hasEnding = ENDING_CUES.some((word) => clean.includes(word));
+      const particleCount = (clean.match(/은|는|이|가|을|를|에|께|에게|한테|와|과|도|로|으로|의/g) || []).length;
+
+      if (clean.length >= 8 && !hasCue && !hasEnding && particleCount < 2) {
+        return "글자 수는 맞지만 단어들이 뜻으로 잘 이어지지 않는 것 같아요. 줄글처럼 읽어 보고 의미가 통하도록 고쳐 보세요.";
+      }
+
+      return null;
+    }
+
+    function fullSongFeedback() {
+      const lines = Object.values(savedLines).filter(Boolean);
+      if (lines.length !== 6) return "";
+
+      const joined = lines.map(meaningText).join("");
+      const hasEmotion = EMOTION_WORDS.some((word) => joined.includes(word));
+      const hasFamily = FAMILY_WORDS.some((word) => joined.includes(word));
+      const hasMemory = MEMORY_WORDS.some((word) => joined.includes(word));
+
+      if (!hasEmotion && !hasFamily && !hasMemory) {
+        return `
+          <h3><span class="yellow-dot"></span>전체 가사 다시 보기</h3>
+          <div class="message warning">6줄 전체를 이어 읽었을 때 가족에게 전하고 싶은 마음이나 추억이 잘 드러나지 않아요. 감사한 일, 기억나는 장면, 하고 싶은 말을 한 가지 이상 넣어 보세요.</div>
+        `;
+      }
+
+      if (!hasEmotion) {
+        return `
+          <h3><span class="yellow-dot"></span>전체 가사 다시 보기</h3>
+          <div class="message warning">6줄 전체를 이어 읽으며 감사, 사랑, 미안함, 고마움 같은 마음이 더 분명하게 드러나는지 확인해 보세요.</div>
+        `;
+      }
+
+      return `<div class="message info">6줄 전체에서 가족에게 전하고 싶은 마음이 어느 정도 드러나요. 이제 실제로 불러 보며 자연스러운지 확인해 보세요.</div>`;
+    }
+
+    function expressionFeedback(parts, lineNum) {
+      const strong = [];
+      const soft = [];
+      const joined = parts.map(meaningText).join("");
+      const warning = thirdMadiWarning(parts);
+
+      if (warning) strong.push(warning);
+
+      const shapeWarning = contentShapeWarning(joined);
+      if (shapeWarning) strong.push(shapeWarning);
+
+      if (joined.includes("엄마빠")) {
+        strong.push("‘엄마빠’는 줄임말처럼 들릴 수 있어요. 같은 4글자인 ‘엄마아빠’로 고쳐 부르는 것이 좋습니다.");
+      }
+
+      const hasEmotion = EMOTION_WORDS.some((word) => joined.includes(word));
+
+      if ([5, 6].includes(lineNum) && !hasEmotion) {
+        soft.push("마무리 부분에서는 감사, 사랑, 고마움 같은 마음이 조금 더 드러나면 좋아요.");
+      } else if ([3, 4].includes(lineNum) && !hasEmotion) {
+        soft.push("중간 부분이므로 가족에게 전하고 싶은 마음이 조금 더 드러나면 좋아요.");
+      }
+
+      return { strong, soft };
+    }
+
+    function updateCaption() {
+      const lineNum = Number(lineSelect.value);
+      rhythmCaption.innerHTML = `
+        <div class="rhythm-title">${lineNum}줄 리듬</div>
+        <div class="rhythm-symbols">${rhythmToSymbols(RHYTHM_CODES[lineNum])}</div>
+        <div class="rhythm-counts">기준 글자수: ${LINE_RULES[lineNum].join(" / ")}</div>
+      `;
+    }
+
+    function renderSavedLines() {
+      const hasSaved = Object.values(savedLines).some(Boolean);
+      savedArea.hidden = !hasSaved;
+      if (!hasSaved) return;
+
+      savedLinesBox.innerHTML = "";
+      for (let i = 1; i <= 6; i += 1) {
+        const row = document.createElement("div");
+        row.className = "saved-line";
+        row.textContent = `${i}줄: ${savedLines[i] || ""}`;
+        savedLinesBox.appendChild(row);
+      }
+    }
+
+    function listHtml(items) {
+      return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+    }
+
+    function checkLyrics() {
+      const lineNum = Number(lineSelect.value);
+      const rules = LINE_RULES[lineNum];
+      const parts = lyricsInput.value.split("/").map((part) => part.trim());
+      const title = `<h2>🎵 ${lineNum}줄 점검 결과</h2>`;
+
+      if (parts.length !== 4) {
+        result.innerHTML = `${title}<div class="message error">/ 표시로 4마디가 되도록 다시 나누어 써 주세요.</div>`;
+        return;
+      }
+
+      const errors = [];
+      const counts = [];
+
+      parts.forEach((part, index) => {
+        const target = rules[index];
+        const current = countChars(part);
+        const real = countedText(part);
+        counts.push(current);
+
+        if (real.startsWith("-")) {
+          errors.push(`${index + 1}마디는 하이픈(-)으로 시작하면 안 돼요.`);
+        }
+
+        if (current !== target) {
+          if (current < target) {
+            errors.push(`${index + 1}마디 ‘${part}’는 기준 ${target}글자인데 현재 ${current}글자라 ${target - current}글자 부족해요.`);
+          } else {
+            errors.push(`${index + 1}마디 ‘${part}’는 기준 ${target}글자인데 현재 ${current}글자라 ${current - target}글자 많아요.`);
+          }
+        }
+      });
+
+      if (errors.length) {
+        result.innerHTML = `
+          ${title}
+          <div class="message error">글자수 수정이 필요해요.</div>
+          <h3>🔴 먼저 고칠 곳</h3>
+          ${listHtml(errors)}
+          <h3>✏️ 수정 방향</h3>
+          <p>먼저 기준 글자수에 맞게 다시 고쳐 보세요.</p>
+        `;
+        return;
+      }
+
+      const feedback = expressionFeedback(parts, lineNum);
+      let feedbackHtml = "";
+
+      if (feedback.strong.length) {
+        feedbackHtml += `
+          <h3><span class="orange-dot"></span>수정을 권하는 곳</h3>
+          <div class="message warning">말의 흐름이 어색하게 들릴 수 있어요. 아래 부분은 고쳐 보는 것이 좋습니다.</div>
+          ${listHtml(feedback.strong)}
+        `;
+      }
+
+      if (feedback.soft.length) {
+        feedbackHtml += `
+          <h3><span class="yellow-dot"></span>다시 불러볼 곳</h3>
+          ${listHtml(feedback.soft)}
+        `;
+      }
+
+      if (!feedback.strong.length && !feedback.soft.length) {
+        feedbackHtml = `<div class="message info">말 흐름에 크게 어색한 부분은 없어 보여요.</div>`;
+      }
+
+      const detailRows = parts
+        .map((part, index) => `<p>${index + 1}마디: ${escapeHtml(part)} — 기준 ${rules[index]}글자 / 현재 ${counts[index]}글자</p>`)
+        .join("");
+      const readableLine = parts.map(meaningText).join(" ");
+
+      savedLines[lineNum] = normalizeLine(parts);
+      const fullFeedbackHtml = fullSongFeedback();
+      result.innerHTML = `
+        ${title}
+        <div class="message success">글자수는 맞아요. 기준 ${rules.join("/")}에 맞게 썼어요.</div>
+        <div class="message info">줄글로 읽기: ${escapeHtml(readableLine)}</div>
+        <details>
+          <summary>마디별 글자수 보기</summary>
+          ${detailRows}
+        </details>
+        ${feedbackHtml}
+        ${fullFeedbackHtml}
+        <h3>➡️ 다음 입력</h3>
+        <p>${lineNum < 6 ? `${lineNum + 1}줄 내용을 넣으세요.` : "6줄까지 점검했습니다. 전체 가사를 이어서 불러 보며 자연스러운지 확인해 보세요."}</p>
+      `;
+      renderSavedLines();
+    }
+
+    lineSelect.addEventListener("change", updateCaption);
+    document.getElementById("checkBtn").addEventListener("click", checkLyrics);
+    lyricsInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") checkLyrics();
+    });
+
+    updateCaption();
+    renderSavedLines();
+  </script>
+</body>
+</html>
