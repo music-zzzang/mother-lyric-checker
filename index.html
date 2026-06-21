@@ -600,6 +600,28 @@
       return null;
     }
 
+    function measureUnitWarning(parts) {
+      const familySplits = [
+        ["할아버", "지", "할아버지"],
+        ["할머", "니", "할머니"],
+        ["아버", "지", "아버지"],
+        ["어머", "니", "어머니"],
+        ["부모", "님", "부모님"],
+      ];
+
+      for (const boundary of [0, 1]) {
+        const left = meaningText(parts[boundary].trim());
+        const right = meaningText(parts[boundary + 1].trim());
+        for (const [tail, head, word] of familySplits) {
+          if (left.endsWith(tail) && right.startsWith(head)) {
+            return `${boundary + 1}마디와 ${boundary + 2}마디 사이에서 ‘${word}’라는 낱말이 끊어져 있어요. 한 마디 안에서 의미가 되도록 나누거나, 1+2 / 3+4처럼 자연스러운 말 묶음이 되도록 다시 고쳐 보세요.`;
+          }
+        }
+      }
+
+      return null;
+    }
+
     function fullSongFeedback() {
       const lines = Object.values(savedLines).filter(Boolean);
       if (lines.length !== 6) return "";
@@ -630,8 +652,10 @@
       const strong = [];
       const soft = [];
       const joined = parts.map(meaningText).join("");
+      const unitWarning = measureUnitWarning(parts);
       const warning = thirdMadiWarning(parts);
 
+      if (unitWarning) strong.push(unitWarning);
       if (warning) strong.push(warning);
 
       const shapeWarning = contentShapeWarning(joined);
