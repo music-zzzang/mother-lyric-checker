@@ -752,6 +752,20 @@
       `;
     }
 
+    function gratitudeFeedbackHtml(ai) {
+      if (!ai || ai.gratitude_relevant !== false) return "";
+      const reason = String(ai.gratitude_reason || "가족에게 전할 감사의 마음과 연결되는 내용인지 다시 살펴보세요.");
+      const question = String(ai.gratitude_question || "엄마나 가족에게 무엇이 고맙고, 왜 그런 마음이 들었는지 떠올려 볼까요?");
+      return `
+        <h3>💛 감사 내용 점검</h3>
+        <div class="message warning">가족에게 전할 감사의 마음과는 관련이 적어 보여요.</div>
+        <p>${escapeHtml(reason)}</p>
+        <h3>✏️ 감사의 마음으로 다시 생각해 볼 질문</h3>
+        ${listHtml([question])}
+        <p>‘고마워’라는 말을 꼭 넣을 필요는 없습니다. 사랑·존경·미안함이나 가족에게 고마웠던 경험을 자신의 말로 표현해 보세요.</p>
+      `;
+    }
+
     async function checkLyrics() {
       const lineNum = Number(lineSelect.value);
       const rules = LINE_RULES[lineNum];
@@ -835,6 +849,7 @@
       }
 
       if (ai) {
+        feedbackHtml += gratitudeFeedbackHtml(ai);
         feedbackHtml += aiFeedbackHtml(ai);
       } else {
         feedbackHtml += `<div class="message warning">${escapeHtml(aiError || "AI 말 흐름 점검에 연결하지 못했어요.")} 지금은 글자 수와 기본 규칙만 확인했습니다. 직접 불러 보고 교사의 피드백을 받으세요.</div>`;
