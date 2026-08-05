@@ -547,11 +547,11 @@
       ];
       if (safeStarts.some((word) => third.startsWith(word))) return null;
 
-      const weakStarts = [
-        "에게", "한테", "으로", "께",
-        "는", "은", "이", "가", "를", "을", "에", "도", "의", "와", "과", "로",
-        "고", "며", "서", "니", "다", "요",
-      ].sort((a, b) => b.length - a.length);
+      // 한 글자만 보고 조사·어미로 단정하면 '고양이', '도움', '이야기'처럼
+      // 같은 글자로 시작하는 정상 명사를 오인한다. 문맥이 필요한 한 글자
+      // 경계는 AI 점검에 맡기고, 독립해서 쓰이기 어려운 명확한 조사만 남긴다.
+      const weakStarts = ["에게", "한테", "으로", "께서", "께"]
+        .sort((a, b) => b.length - a.length);
 
       for (const word of weakStarts) {
         if (third.startsWith(word)) {
