@@ -415,6 +415,9 @@
       "8": "𝅗𝅥",
     };
 
+    const LYRIC_AI_ENDPOINT = "https://desktop-94jaq79.tail68dfda.ts.net/lyric-api";
+    const AI_TIMEOUT_MS = 90000;
+
     function noteHtml(symbol, code) {
       const spacingClass = {
         "1": "note-tight",
@@ -703,7 +706,53 @@
       return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
     }
 
-    function checkLyrics() {
+    async function requestAiFeedback(lineNum, parts) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+      try {
+        const response = await fetch(LYRIC_AI_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ line_num: lineNum, parts, saved_lines: savedLines }),
+          signal: controller.signal,
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.ok) {
+          throw new Error(data.detail || data.error || `AI 응답 오류(${response.status})`);
+        }
+        return data;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    function aiFeedbackHtml(ai) {
+      if (!ai) return "";
+      const issues = Array.isArray(ai.issues)
+        ? ai.issues.map((item) => String(item.message || "")).filter(Boolean)
+        : [];
+      const questions = Array.isArray(ai.guiding_questions)
+        ? ai.guiding_questions.map(String).filter(Boolean)
+        : [];
+
+      if (ai.natural && !issues.length) {
+        return `
+          <h3><span class="yellow-dot"></span>AI 말 흐름 점검</h3>
+          <div class="message info">한국어 말 흐름에 크게 어색한 부분은 찾지 못했어요. AI 결과가 정답은 아니므로, 실제 선율에 맞춰 직접 불러 보고 표현 의도가 잘 들리는지 확인하세요.</div>
+        `;
+      }
+
+      return `
+        <h3><span class="orange-dot"></span>AI 말 흐름 점검</h3>
+        <div class="message warning">글자 수는 맞지만 낱말·조사·어미 또는 마디 경계가 어색하게 들릴 수 있어요.</div>
+        ${issues.length ? listHtml(issues) : ""}
+        ${ai.explanation ? `<p>${escapeHtml(ai.explanation)}</p>` : ""}
+        ${questions.length ? `<h3>✏️ 스스로 고쳐 볼 질문</h3>${listHtml(questions)}` : ""}
+        <p>AI가 가사를 대신 써 주는 것이 아닙니다. 슬래시(/)를 지우고 줄글처럼 읽은 뒤, 선율에 맞춰 직접 불러 보며 고쳐 보세요.</p>
+      `;
+    }
+
+    async function checkLyrics() {
       const lineNum = Number(lineSelect.value);
       const rules = LINE_RULES[lineNum];
       const parts = lyricsInput.value.split("/").map((part) => part.trim());
@@ -748,6 +797,21 @@
         return;
       }
 
+      const checkBtn = document.getElementById("checkBtn");
+      result.innerHTML = `${title}<div class="message info">AI가 글자 수를 통과한 가사의 말 흐름과 노래붙임새를 점검하고 있어요…</div>`;
+      checkBtn.disabled = true;
+      checkBtn.textContent = "AI 점검 중";
+      let ai = null;
+      let aiError = "";
+      try {
+        ai = await requestAiFeedback(lineNum, parts);
+      } catch (error) {
+        aiError = error.name === "AbortError" ? "AI 점검 시간이 초과됐어요." : String(error.message || error);
+      } finally {
+        checkBtn.disabled = false;
+        checkBtn.textContent = "검사하기";
+      }
+
       const feedback = expressionFeedback(parts, lineNum);
       let feedbackHtml = "";
 
@@ -766,21 +830,27 @@
         `;
       }
 
-      if (!feedback.strong.length && !feedback.soft.length) {
-        feedbackHtml = `<div class="message info">말 흐름에 크게 어색한 부분은 없어 보여요.</div>`;
+      if (!feedback.strong.length && !feedback.soft.length && !ai) {
+        feedbackHtml = `<div class="message info">규칙 검사에서는 크게 어색한 부분을 찾지 못했어요.</div>`;
+      }
+
+      if (ai) {
+        feedbackHtml += aiFeedbackHtml(ai);
+      } else {
+        feedbackHtml += `<div class="message warning">${escapeHtml(aiError || "AI 말 흐름 점검에 연결하지 못했어요.")} 지금은 글자 수와 기본 규칙만 확인했습니다. 직접 불러 보고 교사의 피드백을 받으세요.</div>`;
       }
 
       const detailRows = parts
         .map((part, index) => `<p>${index + 1}마디: ${escapeHtml(part)} — 기준 ${rules[index]}글자 / 현재 ${counts[index]}글자</p>`)
         .join("");
-      const readableLine = parts.map(meaningText).join(" ");
+      const readableLine = parts.map(meaningText).join("");
 
       savedLines[lineNum] = normalizeLine(parts);
       const fullFeedbackHtml = fullSongFeedback();
       result.innerHTML = `
         ${title}
         <div class="message success">글자수는 맞아요. 기준 ${rules.join("/")}에 맞게 썼어요.</div>
-        <div class="message info">줄글로 읽기: ${escapeHtml(readableLine)}</div>
+        <div class="message info">슬래시를 지우고 줄글로 읽기: ${escapeHtml(readableLine)}</div>
         <details>
           <summary>마디별 글자수 보기</summary>
           ${detailRows}
@@ -794,9 +864,9 @@
     }
 
     lineSelect.addEventListener("change", updateCaption);
-    document.getElementById("checkBtn").addEventListener("click", checkLyrics);
+    document.getElementById("checkBtn").addEventListener("click", () => { void checkLyrics(); });
     lyricsInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") checkLyrics();
+      if (event.key === "Enter") { event.preventDefault(); void checkLyrics(); }
     });
 
     updateCaption();
