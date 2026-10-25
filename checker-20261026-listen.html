@@ -1074,7 +1074,7 @@
     function codaType(ch) {
       const t = (ch.charCodeAt(0) - 0xAC00) % 28;
       if (t === 0) return 0;
-      return "ㄴㅁㅇㄹ".includes(JT[t]) ? 2 : 1;   // 2 = 공명 받침, 1 = 파열 받침
+      return "ㄴㅁㅇㄹㄵㄶㄻㄼㄽㄾㅀ".includes(JT[t]) ? 2 : 1;   // 2 = 공명 받침(겹받침은 남는 소리 기준), 1 = 파열 받침
     }
     // 한 글자(+이어지는 '-')를 하나의 이어진 음으로 렌더. 반환: {y, onsetLen(초), sr}
     // 자음(온셋) 구간: 최대 100ms, 앞쪽의 거의 무음인 부분(모음 RMS 의 8% 미만)은 버린다
@@ -1093,14 +1093,17 @@
       }
       return { bodyStart, onsetSkip, onsetN: bodyStart - onsetSkip };
     }
-    function onsetSeconds(buf, m) {
+    function onsetSeconds(buf, m, sonorantOnset) {
       const sr = buf.sampleRate; const o = onsetRange(buf, m);
-      const xf = Math.min(Math.floor(0.012 * sr), o.onsetN);
-      return (o.onsetN - xf) / sr;
+      let n = o.onsetN; if (sonorantOnset) n = Math.min(n, Math.round(0.07 * sr));
+      const xf = Math.min(Math.floor(0.012 * sr), n);
+      return (n - xf) / sr;
     }
-    function renderGroup(buf, m, pitchesIn, dursIn, prevF, coda, shift, extend) {
+    function isSonorantOnset(ch) { const l = JL[Math.floor((ch.charCodeAt(0) - 0xAC00) / 588)]; return l === "ㄴ" || l === "ㅁ" || l === "ㄹ"; }
+    function renderGroup(buf, m, pitchesIn, dursIn, prevF, coda, shift, extend, sonorantOnset) {
       const sr = buf.sampleRate, x = buf.getChannelData(0), k = sr / VOICE_SR;
-      const { bodyStart, onsetSkip, onsetN } = onsetRange(buf, m);
+      let { bodyStart, onsetSkip, onsetN } = onsetRange(buf, m);
+      if (sonorantOnset && onsetN > Math.round(0.07 * sr)) { onsetSkip = bodyStart - Math.round(0.07 * sr); onsetN = bodyStart - onsetSkip; }
       // 자음 중 박보다 앞으로 못 나간 몫(lead)은 첫 음의 음가에서 뺀다 → 그룹의 끝이 음가 끝과 일치
       const xf0 = Math.min(Math.floor(0.012 * sr), onsetN);
       const lead = Math.max(0, (onsetN - xf0) / sr - (shift || 0));
@@ -1218,16 +1221,21 @@
         const gd = g.d.reduce((a, b) => a + b, 0);
         if (!buf || !m) { prevF = g.f[g.f.length - 1]; prevEnd = g.t + gd; prevDur = g.d[g.d.length - 1]; return; }
         const phraseStart = g.phraseStart || prevEnd === null || g.t > prevEnd + 1e-3;
-        const shift = phraseStart ? Math.min(onsetSeconds(buf, m), 0.09) : Math.min(onsetSeconds(buf, m), 0.09, 0.4 * prevDur);
-        const r = renderGroup(buf, m, g.f, g.d, prevF, codaType(g.ch), shift, extend);
+        const son = isSonorantOnset(g.ch);
+        const shift = phraseStart ? Math.min(onsetSeconds(buf, m, son), 0.09) : Math.min(onsetSeconds(buf, m, son), 0.09, 0.4 * prevDur);
+        const r = renderGroup(buf, m, g.f, g.d, prevF, codaType(g.ch), shift, extend, son);
         rendered.push({ start: g.t - shift, shiftN: Math.round(shift * r.sr), y: r.y, sr: r.sr });
         prevF = g.f[g.f.length - 1]; prevEnd = g.t + gd; prevDur = g.d[g.d.length - 1];
       });
       // 겹치는 구간은 앞 음이 서서히 꺼지고(렌더 때 페이드) 다음 글자 자음이 올라온다
+      const LINE_DYN = { 1: 0.8, 2: 0.85, 3: 1.0, 4: 1.0, 5: 1.12, 6: 0.85 };
+      const dyn = LINE_DYN[plan.lineNum] || 1;
+      // 악구 끝(마지막 글자): 끝 80ms 를 숨 쉬듯 잦아들게
+      if (rendered.length) { const last = rendered[rendered.length - 1]; const n = Math.min(last.y.length, Math.round(0.08 * last.sr)); for (let i = 0; i < n; i += 1) last.y[last.y.length - n + i] *= 1 - 0.6 * (i / n); }
       rendered.forEach((r) => {
         const ab = ctx.createBuffer(1, r.y.length, r.sr); ab.copyToChannel(r.y, 0);
         const src = ctx.createBufferSource(); src.buffer = ab;
-        const g = ctx.createGain(); g.gain.value = 1;
+        const g = ctx.createGain(); g.gain.value = dyn;
         src.connect(g); g.connect(voiceDry); g.connect(reverbNode);
         const when = t0 + r.start;
         if (when < ctx.currentTime) src.start(ctx.currentTime, ctx.currentTime - when); else src.start(when);
