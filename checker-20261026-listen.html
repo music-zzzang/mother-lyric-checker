@@ -375,6 +375,7 @@
     .knote input.kcell::placeholder { color: #c3cad6; font-weight: 500; }
     .knote.orig input.kcell { color: #556; font-weight: 600; }
     .kcount.short { color: var(--red); font-weight: 600; }
+    .linkbtn { background: none; border: none; color: var(--blue); text-decoration: underline; cursor: pointer; font-size: 0.9rem; padding: 0 4px; margin: 0; width: auto; display: inline; }
     .knote.hold .ksyl { color: #8a94a6; }
     .knote.rest { background: #fff; border-color: var(--line); }
     .knote.rest .ksyl { color: #b0b8c4; font-size: 0.9rem; }
@@ -430,8 +431,8 @@
     </select>
     <div id="rhythmCaption" class="rhythm-box" hidden></div>
 
-    <label id="lyricsLabel">아래 음표 밑 칸에 한 글자씩 쓰세요. 늘여 부르는 자리는 <b>-</b>, 흐리게 보이는 글자는 원곡 가사입니다.</label>
-    <input id="lyrics" type="text" hidden>
+    <label id="lyricsLabel">아래 음표 밑 칸에 한 글자씩 쓰세요. 늘여 부르는 자리는 <b>-</b>, 흐리게 보이는 글자는 원곡 가사입니다. <button type="button" id="toggleText" class="linkbtn">칸 입력이 안 되면 여기를 눌러 한 줄로 쓰기</button></label>
+    <input id="lyrics" type="text" hidden placeholder="예: 앞-으로/엄마아빠/께효도하면/서  (마디는 / 로 나눔)">
 
     <section class="player" id="player" aria-label="들어 보기">
       <div class="player-title">🎧 들어 보기 — 내 가사가 가락에 어떻게 얹히는지 듣고 보기</div>
@@ -1381,20 +1382,24 @@
     }
     function wireCells() {
       allCells().forEach((cell) => {
-        cell.addEventListener("input", (ev) => {
-          if (ev.isComposing) return;
+        // 한글 IME: 조합 중(자모만 있거나 isComposing)에는 손대지 않고, 완성 글자가 생겼을 때만 처리
+        const isJamo = (ch) => ch >= "ㄱ" && ch <= "ㆎ";
+        const handle = (ev) => {
+          if (ev && ev.isComposing) return;
           const v = Array.from(cell.value);
-          if (v.length > 1) { cell.value = v[0]; fillFrom(allCells()[allCells().indexOf(cell) + 1], v.slice(1).join("")); return; }
-          if (v.length === 1 && v[0] !== "-" && !(v[0] >= "가" && v[0] <= "힣")) { cell.value = ""; return; }
+          if (v.some(isJamo)) return;                       // 아직 조합 중
+          const ok = v.filter((ch) => ch === "-" || (ch >= "가" && ch <= "힣"));
+          if (ok.length !== v.length) { cell.value = ok.join(""); }
+          if (ok.length > 1) { cell.value = ok[0]; updateDerived(); fillFrom(allCells()[allCells().indexOf(cell) + 1], ok.slice(1).join("")); return; }
           updateDerived();
-          if (v.length === 1) { const cells = allCells(); const i = cells.indexOf(cell); if (i + 1 < cells.length) cells[i + 1].focus(); }
-        });
-        cell.addEventListener("compositionend", () => {
-          const v = Array.from(cell.value);
-          if (v.length > 1) { cell.value = v[0]; fillFrom(allCells()[allCells().indexOf(cell) + 1], v.slice(1).join("")); return; }
-          updateDerived();
-          if (v.length === 1) { const cells = allCells(); const i = cells.indexOf(cell); if (i + 1 < cells.length) cells[i + 1].focus(); }
-        });
+          if (ok.length === 1 && cell.dataset.adv !== ok[0] + "@" + cell.value) {
+            cell.dataset.adv = ok[0] + "@" + cell.value;
+            const cells = allCells(); const i = cells.indexOf(cell); if (i + 1 < cells.length) cells[i + 1].focus();
+          }
+          if (ok.length === 0) cell.dataset.adv = "";
+        };
+        cell.addEventListener("input", handle);
+        cell.addEventListener("compositionend", () => handle(null));
         cell.addEventListener("keydown", (ev) => {
           const cells = allCells(); const i = cells.indexOf(cell);
           if (ev.key === "Backspace" && cell.value === "" && i > 0) { ev.preventDefault(); cells[i - 1].value = ""; cells[i - 1].focus(); updateDerived(); }
@@ -1403,7 +1408,7 @@
           else if (ev.key === "Enter") { ev.preventDefault(); document.getElementById("playMine").click(); }
         });
         cell.addEventListener("paste", (ev) => { ev.preventDefault(); fillFrom(cell, (ev.clipboardData || window.clipboardData).getData("text")); });
-        cell.addEventListener("focus", () => cell.select());
+        cell.addEventListener("focus", () => { try { cell.setSelectionRange(cell.value.length, cell.value.length); } catch (e) {} });
       });
     }
     const kextra = document.getElementById("kextra");
@@ -1649,6 +1654,11 @@
     stopBtn.addEventListener("click", () => stopPlayback("멈췄습니다."));
     lyricsInput.addEventListener("input", () => { gateBox.hidden = true; refreshStrip(); });
     lineSelect.addEventListener("change", () => { const ln = Number(lineSelect.value); lyricsInput.value = draftLines[ln] || savedLines[ln] || ""; gateBox.hidden = true; refreshStrip(); });
+    document.getElementById("toggleText").addEventListener("click", () => {
+      const show = lyricsInput.hidden; lyricsInput.hidden = !show;
+      document.getElementById("toggleText").textContent = show ? "한 줄 입력 닫기" : "칸 입력이 안 되면 여기를 눌러 한 줄로 쓰기";
+      if (show) lyricsInput.focus();
+    });
     document.getElementById("clearCells").addEventListener("click", () => { lyricsInput.value = ""; draftLines[Number(lineSelect.value)] = ""; gateBox.hidden = true; refreshStrip(); const c = allCells(); if (c.length) c[0].focus(); });
     lyricsInput.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); void checkLyrics(); } });
     refreshStrip();
