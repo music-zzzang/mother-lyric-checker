@@ -1203,7 +1203,7 @@
         const gd = g.d.reduce((a, b) => a + b, 0);
         if (!buf || !m) { prevF = g.f[g.f.length - 1]; prevEnd = g.t + gd; prevDur = g.d[g.d.length - 1]; return; }
         const phraseStart = g.phraseStart || prevEnd === null || g.t > prevEnd + 1e-3;
-        const shift = phraseStart ? 0 : Math.min(onsetSeconds(buf, m), 0.09, 0.4 * prevDur);
+        const shift = phraseStart ? Math.min(onsetSeconds(buf, m), 0.09) : Math.min(onsetSeconds(buf, m), 0.09, 0.4 * prevDur);
         const r = renderGroup(buf, m, g.f, g.d, prevF, codaType(g.ch), shift, extend);
         rendered.push({ start: g.t - shift, shiftN: Math.round(shift * r.sr), y: r.y, sr: r.sr });
         prevF = g.f[g.f.length - 1]; prevEnd = g.t + gd; prevDur = g.d[g.d.length - 1];
@@ -1547,12 +1547,6 @@
     stopBtn.addEventListener("click", () => stopPlayback("멈췄습니다."));
     lyricsInput.addEventListener("input", refreshStrip);
     lineSelect.addEventListener("change", refreshStrip);
-    // 주소에 ?l1=가사&l2=가사… 를 붙이면 미리 채운다 (수업용 예시·공유)
-    try {
-      const q = new URLSearchParams(location.search); let filled = 0;
-      for (let i = 1; i <= 6; i += 1) { const v = q.get("l" + i); if (v) { savedLines[i] = v.trim(); filled += 1; } }
-      if (filled) { renderSavedLines(); const ln = q.get("line") || "1"; lineSelect.value = ln; updateCaption(); if (savedLines[Number(ln)]) lyricsInput.value = savedLines[Number(ln)]; }
-    } catch (e) {}
     refreshStrip();
 
     lineSelect.addEventListener("change", updateCaption);
