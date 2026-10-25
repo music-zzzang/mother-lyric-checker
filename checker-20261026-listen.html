@@ -418,7 +418,7 @@
 
     <section class="player" id="player" aria-label="들어 보기">
       <div class="player-title">🎧 들어 보기 — 내 가사가 가락에 어떻게 얹히는지 듣고 보기</div>
-      <p class="player-help">위 칸에 가사를 쓰면 글자가 음표 하나하나에 자리를 잡습니다. ▶ 를 누르면 이 줄 4마디의 가락이 울리고, 지금 부르는 글자가 노란색으로 켜집니다. 빈 칸(□)은 글자가 모자란 자리, 아래 빨간 글자는 음표가 없어 남는 글자입니다.</p>
+      <p class="player-help">위 칸에 가사를 쓰면 글자가 음표 하나하나에 자리를 잡습니다. ▶ 를 누르면 이 줄 4마디의 가락이 울리고, 기기 음성이 글자를 박자에 맞춰 읽으며, 지금 부르는 글자가 노란색으로 켜집니다. 빈 칸(□)은 글자가 모자란 자리, 아래 빨간 글자는 음표가 없어 남는 글자입니다.</p>
       <div class="player-controls">
         <button type="button" id="playMine" class="primary">▶ 내 가사로 듣기</button>
         <button type="button" id="playOrig">▶ 원곡 가사로 듣기</button>
@@ -429,7 +429,7 @@
           <option value="64" selected>느리게</option>
           <option value="48">아주 느리게</option>
         </select>
-        <label class="inline"><input type="checkbox" id="speakChk"> 글자 읽어 주기(기기 음성)</label>
+        <label class="inline"><input type="checkbox" id="speakChk" checked> 가사 소리 내어 읽기(기기 음성)</label>
       </div>
       <div class="player-status" id="playStatus"></div>
       <div class="kstrip" id="kstrip"></div>
@@ -1080,6 +1080,7 @@
       return audioCtx;
     }
 
+    let toneLevel = 0.5;
     function playTone(ctx, freq, start, dur) {
       const gain = ctx.createGain();
       gain.connect(ctx.destination);
@@ -1089,9 +1090,9 @@
       o1.connect(gain); o2.connect(g2); g2.connect(gain);
       const end = start + dur;
       gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.5, start + 0.015);
-      gain.gain.exponentialRampToValueAtTime(0.25, start + Math.min(0.25, dur * 0.6));
-      gain.gain.setValueAtTime(0.25, Math.max(start + 0.02, end - 0.06));
+      gain.gain.exponentialRampToValueAtTime(toneLevel, start + 0.015);
+      gain.gain.exponentialRampToValueAtTime(toneLevel * 0.5, start + Math.min(0.25, dur * 0.6));
+      gain.gain.setValueAtTime(toneLevel * 0.5, Math.max(start + 0.02, end - 0.06));
       gain.gain.exponentialRampToValueAtTime(0.0001, end);
       o1.start(start); o2.start(start); o1.stop(end + 0.02); o2.stop(end + 0.02);
       activeNodes.push(gain);
@@ -1106,13 +1107,35 @@
       activeNodes.push(gain);
     }
 
+    // 기기 음성: 한국어 음성 중 자연스러운 것(Edge 의 SunHi 온라인 음성 등)을 우선 고른다.
+    let koVoice = null;
+    function pickVoice() {
+      if (!("speechSynthesis" in window)) return null;
+      const voices = window.speechSynthesis.getVoices().filter((v) => /^ko/i.test(v.lang));
+      if (!voices.length) return null;
+      const score = (v) => (/sunhi|injoon|natural|online/i.test(v.name) ? 3 : 0) + (/google/i.test(v.name) ? 2 : 0) + (v.localService ? 0 : 1);
+      voices.sort((a, b) => score(b) - score(a));
+      return voices[0];
+    }
+    if ("speechSynthesis" in window) {
+      koVoice = pickVoice();
+      window.speechSynthesis.onvoiceschanged = () => { koVoice = pickVoice(); };
+    }
+    const SPEAK_LEAD = 0.09; // 음성 시작 지연(초)을 보정해 음보다 조금 먼저 말하기 시작
     function speakSyllable(ch) {
       if (!("speechSynthesis" in window) || !ch || ch === "-") return;
       try {
+        const synth = window.speechSynthesis;
+        if (synth.speaking || synth.pending) synth.cancel(); // 앞 글자가 늦으면 끊고 박자를 맞춘다
         const u = new SpeechSynthesisUtterance(ch);
-        u.lang = "ko-KR"; u.rate = 1.4; u.pitch = 1.0;
-        window.speechSynthesis.speak(u);
+        u.lang = "ko-KR"; u.rate = 1.2; u.pitch = 1.0; u.volume = 1;
+        if (koVoice) u.voice = koVoice;
+        synth.speak(u);
       } catch (e) { /* 음성 미지원 기기 */ }
+    }
+    function warmUpSpeech() {
+      if (!("speechSynthesis" in window)) return;
+      try { const u = new SpeechSynthesisUtterance(" "); u.lang = "ko-KR"; u.volume = 0; window.speechSynthesis.speak(u); } catch (e) {}
     }
 
     function setPlayingUI(on) {
@@ -1143,7 +1166,9 @@
       setPlayingUI(true);
       const myId = playId;
       const bpm = Number(document.getElementById("tempoSel").value);
-      const speak = document.getElementById("speakChk").checked;
+      const speak = document.getElementById("speakChk").checked && ("speechSynthesis" in window);
+      toneLevel = speak ? 0.3 : 0.5;
+      if (speak) warmUpSpeech();
       const sixteenth = 60 / bpm / 4;
       const quarter = sixteenth * 4;
       const t0 = ctx.currentTime + 0.1;
@@ -1174,8 +1199,8 @@
               const el = kstrip.querySelector(`.knote[data-bar="${bi}"][data-note="${ni}"]`);
               if (el) el.classList.add("on");
               playStatus.textContent = `${label} — ${bi + 1}마디`;
-              if (speak && !n.rest && n.syl && n.syl !== "-") speakSyllable(n.syl);
             });
+            if (speak && !n.rest && n.syl && n.syl !== "-") schedule(Math.max(0, start - SPEAK_LEAD), () => speakSyllable(n.syl));
             t += dur;
           });
         });
