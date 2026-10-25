@@ -1361,6 +1361,7 @@
     // 글자 입력: 보이지 않는 한 줄 입력창(#typer) 하나가 글쇠를 받고, 음표 밑 칸은 그 내용을 보여 주기만 한다.
     // (칸마다 입력창을 두고 초점을 옮기면 한글 IME 조합이 끊겨 글자가 사라지는 문제가 있었음 — 2026-10-26)
     const kwrap = document.getElementById("kwrap");
+    let fullNotice = "";
     const typer = document.getElementById("typer");
     let composing = false;
     const isJamo = (ch) => ch >= "ㄱ" && ch <= "ㆎ";
@@ -1392,7 +1393,14 @@
     function syncFromTyper() {
       cleanTyper();
       const lineNum = Number(lineSelect.value);
-      const chars = charsOf(typer.value);
+      let chars = charsOf(typer.value);
+      const total = barSizes(lineNum).reduce((a, b) => a + b, 0);
+      if (!composing && chars.length > total) {
+        // 음표보다 많이 쓴 글자는 받지 않는다(넘친 글자가 숨어서 "4마디에 1개 많음" 같은 엉뚱한 안내가 나오던 문제)
+        chars = chars.slice(0, total); typer.value = chars.join("");
+        try { typer.setSelectionRange(total, total); } catch (e) {}
+        fullNotice = `음표 ${total}개가 모두 찼어요. 글자를 고치려면 그 칸을 누르고 다시 쓰세요.`;
+      } else if (chars.length < total) fullNotice = "";
       const text = charsToText(lineNum, chars.filter((ch) => !isJamo(ch)));
       lyricsInput.value = text; draftLines[lineNum] = text;
       gateBox.hidden = true;
@@ -1462,6 +1470,9 @@
       if (plan.extras.length) {
         kextra.hidden = false;
         kextra.textContent = "음표가 없어 남는 글자: " + plan.extras.map((e) => `${e.bar}마디 ‘${e.chars}’`).join(", ");
+      } else if (fullNotice && !isOriginal) {
+        kextra.hidden = false;
+        kextra.textContent = fullNotice;
       } else {
         kextra.hidden = true;
         kextra.textContent = "";
@@ -1637,7 +1648,9 @@
         const need = bar.filter((n) => !n.rest).length;
         const have = bar.filter((n) => !n.rest && n.syl !== null).length;
         const extra = plan.extras.find((e) => e.bar === bi + 1);
-        if (extra) out.push(`${bi + 1}마디: 음표 ${need}개에 글자가 ${extra.chars.length}개 많습니다. ‘${extra.chars}’는 부르지 않고 다음 마디로 넘어갑니다.`);
+        if (extra) out.push(bi + 1 === plan.bars.length
+          ? `${bi + 1}마디: 음표 ${need}개보다 글자가 ${extra.chars.length}개 많습니다. 남는 ‘${extra.chars}’는 부르지 않습니다.`
+          : `${bi + 1}마디: 음표 ${need}개보다 글자가 ${extra.chars.length}개 많습니다. 남는 ‘${extra.chars}’는 부르지 않고 다음 마디로 넘어갑니다.`);
         else if (have < need) out.push(`${bi + 1}마디: 음표 ${need}개에 글자가 ${need - have}개 모자랍니다. 그 자리는 가락만 나옵니다.`);
       });
       return out;
