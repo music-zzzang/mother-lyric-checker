@@ -387,6 +387,9 @@
     .gate-btns button.fix { background: var(--orange); color: #fff; }
     .kextra.kflash { background: #ffe1d1; border-radius: 8px; padding: 4px 8px; }
     .kcount { margin-top: 4px; font-size: 0.85rem; color: var(--muted); }
+    #lyrics { font-size: 1.6rem; padding: 12px 14px; letter-spacing: 0.02em; }
+    #lineNum { font-size: 1.2rem; }
+    #aiSlot .message { margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -492,7 +495,7 @@
     };
 
     const LYRIC_AI_ENDPOINT = "https://desktop-94jaq79.tail68dfda.ts.net/lyric-api";
-    const AI_TIMEOUT_MS = 90000;
+    const AI_TIMEOUT_MS = 25000;
 
     function noteHtml(symbol, code) {
       const spacingClass = {
@@ -888,56 +891,31 @@
       }
 
       const checkBtn = document.getElementById("checkBtn");
-      result.innerHTML = `${title}<div class="message info">AI가 글자 수를 통과한 가사의 말 흐름과 노래붙임새를 점검하고 있어요…</div>`;
-      checkBtn.disabled = true;
-      checkBtn.textContent = "AI 점검 중";
-      let ai = null;
-      let aiError = "";
-      try {
-        ai = await requestAiFeedback(lineNum, parts);
-      } catch (error) {
-        aiError = error.name === "AbortError" ? "AI 점검 시간이 초과됐어요." : String(error.message || error);
-      } finally {
-        checkBtn.disabled = false;
-        checkBtn.textContent = "검사하기";
-      }
-
       const feedback = expressionFeedback(parts, lineNum);
-      let feedbackHtml = "";
-
+      let ruleHtml = "";
       if (feedback.strong.length) {
-        feedbackHtml += `
+        ruleHtml += `
           <h3><span class="orange-dot"></span>수정을 권하는 곳</h3>
           <div class="message warning">말의 흐름이 어색하게 들릴 수 있어요. 아래 부분은 고쳐 보는 것이 좋습니다.</div>
           ${listHtml(feedback.strong)}
         `;
       }
-
       if (feedback.soft.length) {
-        feedbackHtml += `
+        ruleHtml += `
           <h3><span class="yellow-dot"></span>다시 불러볼 곳</h3>
           ${listHtml(feedback.soft)}
         `;
       }
-
-      if (!feedback.strong.length && !feedback.soft.length && !ai) {
-        feedbackHtml = `<div class="message info">규칙 검사에서는 크게 어색한 부분을 찾지 못했어요.</div>`;
+      if (!feedback.strong.length && !feedback.soft.length) {
+        ruleHtml = `<div class="message info">규칙 검사에서는 크게 어색한 부분을 찾지 못했어요.</div>`;
       }
-
-      if (ai) {
-        feedbackHtml += gratitudeFeedbackHtml(ai);
-        feedbackHtml += aiFeedbackHtml(ai);
-      } else {
-        feedbackHtml += `<div class="message warning">${escapeHtml(aiError || "AI 말 흐름 점검에 연결하지 못했어요.")} 지금은 글자 수와 기본 규칙만 확인했습니다. 직접 불러 보고 교사의 피드백을 받으세요.</div>`;
-      }
-
       const detailRows = parts
         .map((part, index) => `<p>${index + 1}마디: ${escapeHtml(part)} — 기준 ${rules[index]}글자 / 현재 ${counts[index]}글자</p>`)
         .join("");
       const readableLine = parts.map(meaningText).join("");
-
       savedLines[lineNum] = normalizeLine(parts);
       const fullFeedbackHtml = fullSongFeedback();
+      // 규칙 결과는 바로 보여 주고, AI 결과는 자리(aiSlot)에 나중에 채운다
       result.innerHTML = `
         ${title}
         <div class="message success">글자수는 맞아요. 기준 ${rules.join("/")}에 맞게 썼어요.</div>
@@ -946,14 +924,23 @@
           <summary>마디별 글자수 보기</summary>
           ${detailRows}
         </details>
-        ${feedbackHtml}
+        ${ruleHtml}
+        <div id="aiSlot"><div class="message info">🤖 AI가 말 흐름과 노래붙임새를 더 살펴보는 중이에요… (최대 25초, 그동안 들어 봐도 됩니다)</div></div>
         ${fullFeedbackHtml}
         <h3>➡️ 다음 입력</h3>
         <p>${lineNum < 6 ? `${lineNum + 1}줄 내용을 넣으세요.` : "6줄까지 점검했습니다. 전체 가사를 이어서 불러 보며 자연스러운지 확인해 보세요."}</p>
       `;
       renderSavedLines();
+      const slot = document.getElementById("aiSlot");
+      checkBtn.disabled = true; checkBtn.textContent = "AI 점검 중…";
+      let ai = null, aiError = "";
+      try { ai = await requestAiFeedback(lineNum, parts); }
+      catch (error) { aiError = error.name === "AbortError" ? "AI 점검 시간이 초과됐어요." : (/fetch/i.test(String(error.message || error)) ? "AI 점검 서버에 연결되지 않았어요(선생님 PC가 꺼져 있을 수 있어요)." : String(error.message || error)); }
+      finally { checkBtn.disabled = false; checkBtn.textContent = "검사만 하기 (소리 없이)"; }
+      if (!slot || !slot.isConnected) return;
+      if (ai) slot.innerHTML = gratitudeFeedbackHtml(ai) + aiFeedbackHtml(ai);
+      else slot.innerHTML = `<div class="message warning">${escapeHtml(aiError || "AI 말 흐름 점검에 연결하지 못했어요.")} 지금은 글자 수와 기본 규칙만 확인했습니다. 직접 불러 보고 교사의 피드백을 받으세요.</div>`;
     }
-
 
     // ======================= 발음 규칙(노래용 간이 표준 발음) =======================
     const JL = Array.from("ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ");
