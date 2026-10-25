@@ -377,6 +377,7 @@
     .knote.orig .ksyl { color: #556; font-weight: 600; }
     .knote.on { background: #fff2a8; border-color: #d2a22e; transform: scale(1.08); }
     .kextra { margin-top: 6px; font-size: 0.9rem; color: var(--red); }
+    .knote .kspk { font-size: 0.72rem; color: #7a869a; line-height: 1.1; min-height: 0.8em; }
     .kcount { margin-top: 4px; font-size: 0.85rem; color: var(--muted); }
   </style>
 </head>
@@ -418,7 +419,7 @@
 
     <section class="player" id="player" aria-label="들어 보기">
       <div class="player-title">🎧 들어 보기 — 내 가사가 가락에 어떻게 얹히는지 듣고 보기</div>
-      <p class="player-help">위 칸에 가사를 쓰면 글자가 음표 하나하나에 자리를 잡습니다. ▶ 를 누르면 이 줄 4마디의 가락이 울리고, 기기 음성이 글자를 박자에 맞춰 읽으며, 지금 부르는 글자가 노란색으로 켜집니다. 빈 칸(□)은 글자가 모자란 자리, 아래 빨간 글자는 음표가 없어 남는 글자입니다.</p>
+      <p class="player-help">위 칸에 가사를 쓰면 글자가 음표 하나하나에 자리를 잡습니다. ▶ 를 누르면 합성 음성이 내 가사를 가락에 맞춰 <b>노래로 불러 주고</b>, 지금 부르는 글자가 노란색으로 켜집니다. 발음이 달라지는 글자(잊으→이즈)는 글자 아래에 작게 표시됩니다. 빈 칸(□)은 글자가 모자란 자리, 아래 빨간 글자는 음표가 없어 남는 글자입니다.</p>
       <div class="player-controls">
         <button type="button" id="playMine" class="primary">▶ 내 가사로 듣기</button>
         <button type="button" id="playOrig">▶ 원곡 가사로 듣기</button>
@@ -429,7 +430,12 @@
           <option value="64" selected>느리게</option>
           <option value="48">아주 느리게</option>
         </select>
-        <label class="inline"><input type="checkbox" id="speakChk" checked> 가사 소리 내어 읽기(기기 음성)</label>
+        <select id="soundSel" aria-label="소리 방식">
+          <option value="sing" selected>🎤 노래로 듣기(합성 음성)</option>
+          <option value="tone">🎹 가락만 듣기</option>
+          <option value="speak">🗣 가락 + 글자 읽기</option>
+        </select>
+        <label class="inline"><input type="checkbox" id="accompChk" checked> 반주(가락) 함께</label>
       </div>
       <div class="player-status" id="playStatus"></div>
       <div class="kstrip" id="kstrip"></div>
@@ -940,6 +946,272 @@
     }
 
 
+    // ======================= 발음 규칙(노래용 간이 표준 발음) =======================
+    const JL = Array.from("ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ");
+    const JV = Array.from("ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ");
+    const JT = [""].concat(Array.from("ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ"));
+    const DOUBLE_T = { "ㄳ":["ㄱ","ㅅ"],"ㄵ":["ㄴ","ㅈ"],"ㄶ":["ㄴ","ㅎ"],"ㄺ":["ㄹ","ㄱ"],"ㄻ":["ㄹ","ㅁ"],"ㄼ":["ㄹ","ㅂ"],"ㄽ":["ㄹ","ㅅ"],"ㄾ":["ㄹ","ㅌ"],"ㄿ":["ㄹ","ㅍ"],"ㅀ":["ㄹ","ㅎ"],"ㅄ":["ㅂ","ㅅ"] };
+    const NEUT_T = { "ㄱ":"ㄱ","ㄲ":"ㄱ","ㅋ":"ㄱ","ㄳ":"ㄱ","ㄺ":"ㄱ","ㄴ":"ㄴ","ㄵ":"ㄴ","ㄶ":"ㄴ","ㄷ":"ㄷ","ㅅ":"ㄷ","ㅆ":"ㄷ","ㅈ":"ㄷ","ㅊ":"ㄷ","ㅌ":"ㄷ","ㅎ":"ㄷ","ㄹ":"ㄹ","ㄼ":"ㄹ","ㄽ":"ㄹ","ㄾ":"ㄹ","ㅀ":"ㄹ","ㅁ":"ㅁ","ㄻ":"ㅁ","ㅂ":"ㅂ","ㅍ":"ㅂ","ㅄ":"ㅂ","ㄿ":"ㅂ","ㅇ":"ㅇ","":"" };
+    const TENSE_L = { "ㄱ":"ㄲ","ㄷ":"ㄸ","ㅂ":"ㅃ","ㅅ":"ㅆ","ㅈ":"ㅉ" };
+    const ASP_L = { "ㄱ":"ㅋ","ㄷ":"ㅌ","ㅈ":"ㅊ" };
+    const isSyl = (ch) => typeof ch === "string" && ch.length === 1 && ch >= "가" && ch <= "힣";
+    function decJamo(ch) { const c = ch.charCodeAt(0) - 0xAC00; return [JL[Math.floor(c / 588)], JV[Math.floor((c % 588) / 28)], JT[c % 28]]; }
+    function encJamo(l, v, t) { return String.fromCharCode(0xAC00 + JL.indexOf(l) * 588 + JV.indexOf(v) * 28 + JT.indexOf(t)); }
+
+    // chars: 글자·'-'·'/'(마디 경계) 배열 → 같은 길이의 배열(글자만 발음대로 바뀜)
+    function pronounce(chars) {
+      const idx = []; chars.forEach((c, i) => { if (isSyl(c)) idx.push(i); });
+      const syl = idx.map((i) => decJamo(chars[i]));
+      const barbreak = idx.map((i) => { let j = i + 1; while (j < chars.length && chars[j] === "-") j += 1; return j < chars.length && chars[j] === "/"; });
+      const n = syl.length;
+      for (let k = 0; k < n; k += 1) {
+        const [l, v, t] = syl[k];
+        if (v === "ㅢ") { if (l !== "ㅇ") syl[k][1] = "ㅣ"; else if (k > 0 && t === "") syl[k][1] = "ㅔ"; }
+      }
+      for (let k = 0; k < n - 1; k += 1) {
+        const [l1, v1, t1] = syl[k]; const [l2, v2, t2] = syl[k + 1];
+        if (t1 === "") continue;
+        const dbl = DOUBLE_T[t1]; const a = dbl ? dbl[0] : t1; const b = dbl ? dbl[1] : null;
+        if (b === "ㅎ" || t1 === "ㅎ") {
+          const base = b === "ㅎ" ? a : "";
+          if (l2 === "ㅇ") { syl[k][2] = ""; syl[k + 1][0] = base || "ㅇ"; }
+          else if (ASP_L[l2]) { syl[k][2] = base; syl[k + 1][0] = ASP_L[l2]; }
+          else if (l2 === "ㅅ") { syl[k][2] = base; }
+          else if (l2 === "ㄴ") { syl[k][2] = base || "ㄴ"; }
+          else { syl[k][2] = base || "ㄷ"; }
+          continue;
+        }
+        if ((t1 === "ㄷ" || t1 === "ㅌ") && l2 === "ㅇ" && v2 === "ㅣ") { syl[k][2] = ""; syl[k + 1][0] = t1 === "ㄷ" ? "ㅈ" : "ㅊ"; continue; }
+        if (t1 === "ㄾ" && l2 === "ㅇ" && v2 === "ㅣ") { syl[k][2] = "ㄹ"; syl[k + 1][0] = "ㅊ"; continue; }
+        if (l2 === "ㅇ") {
+          if (t1 === "ㅇ") continue;
+          if (b) { syl[k][2] = a; syl[k + 1][0] = b; } else { syl[k][2] = ""; syl[k + 1][0] = t1; }
+          continue;
+        }
+        const nt = NEUT_T[t1];
+        if (l2 === "ㅎ" && (nt === "ㄱ" || nt === "ㄷ" || nt === "ㅂ")) {
+          syl[k][2] = ""; syl[k + 1][0] = { "ㄱ": "ㅋ", "ㄷ": "ㅌ", "ㅂ": "ㅍ" }[nt];
+          if (t1 === "ㅈ") syl[k + 1][0] = "ㅊ";
+          continue;
+        }
+        syl[k][2] = nt;
+        if (nt === "ㄴ" && l2 === "ㄹ") { syl[k][2] = "ㄹ"; continue; }
+        if (nt === "ㄹ" && l2 === "ㄴ") { syl[k + 1][0] = "ㄹ"; continue; }
+        if ((nt === "ㄱ" || nt === "ㄷ" || nt === "ㅂ") && (l2 === "ㄴ" || l2 === "ㅁ")) { syl[k][2] = { "ㄱ": "ㅇ", "ㄷ": "ㄴ", "ㅂ": "ㅁ" }[nt]; continue; }
+        if ((nt === "ㅁ" || nt === "ㅇ") && l2 === "ㄹ") { syl[k + 1][0] = "ㄴ"; continue; }
+        if ((nt === "ㄱ" || nt === "ㅂ") && l2 === "ㄹ") { syl[k][2] = nt === "ㄱ" ? "ㅇ" : "ㅁ"; syl[k + 1][0] = "ㄴ"; continue; }
+        if (barbreak[k]) continue;
+        if ((nt === "ㄱ" || nt === "ㄷ" || nt === "ㅂ") && TENSE_L[l2]) { syl[k + 1][0] = TENSE_L[l2]; continue; }
+        if ((t1 === "ㄾ" || t1 === "ㄼ") && TENSE_L[l2]) { syl[k + 1][0] = TENSE_L[l2]; continue; }
+      }
+      if (n) syl[n - 1][2] = NEUT_T[syl[n - 1][2]];
+      const out = chars.slice();
+      idx.forEach((i, k) => { out[i] = encJamo(syl[k][0], syl[k][1], syl[k][2]); });
+      return out;
+    }
+
+    // ======================= 노래로 듣기(음성 합성) =======================
+    // voice/<코드>.ogg : [자음 원음(≤120ms)] + [220Hz 로 평탄화한 모음·꼬리].  meta.json: [자음 샘플수, 유성 구간 샘플수, 몸통 샘플수, 받침 여부] (24kHz 기준)
+    const VOICE_BASE = "voice/";
+    const VOICE_SR = 24000;
+    const VOICE_F0 = 220;
+    let voiceMeta = null;
+    let voiceMetaFailed = false;
+    const voiceCache = new Map();
+    let reverbNode = null, voiceDry = null, voiceWet = null;
+
+    async function loadVoiceMeta() {
+      if (voiceMeta || voiceMetaFailed) return voiceMeta;
+      try {
+        const r = await fetch(VOICE_BASE + "meta.json", { cache: "force-cache" });
+        if (!r.ok) throw new Error(String(r.status));
+        voiceMeta = await r.json();
+      } catch (e) { voiceMetaFailed = true; }
+      return voiceMeta;
+    }
+
+    async function loadSyllable(ctx, ch) {
+      const code = String(ch.codePointAt(0));
+      if (voiceCache.has(code)) return voiceCache.get(code);
+      let buf = null;
+      try {
+        if (voiceMeta && voiceMeta[code]) {
+          const r = await fetch(VOICE_BASE + code + ".ogg", { cache: "force-cache" });
+          if (r.ok) buf = await ctx.decodeAudioData(await r.arrayBuffer());
+        }
+      } catch (e) { buf = null; }
+      voiceCache.set(code, buf);
+      return buf;
+    }
+
+    function ensureVoiceChain(ctx) {
+      if (reverbNode) return;
+      const n = Math.floor(1.1 * ctx.sampleRate);
+      const ir = ctx.createBuffer(1, n, ctx.sampleRate);
+      const d = ir.getChannelData(0);
+      let seed = 12345;
+      const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff * 2 - 1; };
+      let e = 0;
+      for (let i = 1; i < n; i += 1) { d[i] = rnd() * Math.exp(-i / (ctx.sampleRate * 0.28)); e += d[i] * d[i]; }
+      const norm = 1 / Math.sqrt(e);
+      for (let i = 0; i < n; i += 1) d[i] *= norm;
+      reverbNode = ctx.createConvolver(); reverbNode.buffer = ir;
+      voiceDry = ctx.createGain(); voiceDry.gain.value = 0.9;
+      voiceWet = ctx.createGain(); voiceWet.gain.value = 0.9 * 0.18;
+      voiceDry.connect(ctx.destination);
+      reverbNode.connect(voiceWet); voiceWet.connect(ctx.destination);
+    }
+
+    function codaType(ch) {
+      const t = (ch.charCodeAt(0) - 0xAC00) % 28;
+      if (t === 0) return 0;
+      return "ㄴㅁㅇㄹ".includes(JT[t]) ? 2 : 1;   // 2 = 공명 받침, 1 = 파열 받침
+    }
+    // 한 글자(+이어지는 '-')를 하나의 이어진 음으로 렌더. 반환: {y, onsetLen(초), sr}
+    function onsetSeconds(buf, m) {
+      const sr = buf.sampleRate, k = sr / VOICE_SR;
+      const bodyStart = Math.round(m[0] * k);
+      const onsetN = Math.min(bodyStart, Math.round(0.10 * sr));
+      const xf = Math.min(Math.floor(0.012 * sr), onsetN);
+      return (onsetN - xf) / sr;
+    }
+    function renderGroup(buf, m, pitchesIn, dursIn, prevF, coda, shift) {
+      const sr = buf.sampleRate, x = buf.getChannelData(0), k = sr / VOICE_SR;
+      const bodyStart = Math.round(m[0] * k);
+      const onsetSkip = Math.max(0, bodyStart - Math.round(0.10 * sr));
+      const onsetN = bodyStart - onsetSkip;
+      // 자음 중 박보다 앞으로 못 나간 몫(lead)은 첫 음의 음가에서 뺀다 → 그룹의 끝이 음가 끝과 일치
+      const xf0 = Math.min(Math.floor(0.012 * sr), onsetN);
+      const lead = Math.max(0, (onsetN - xf0) / sr - (shift || 0));
+      const pitches = pitchesIn.slice(); const durs = dursIn.slice();
+      durs[0] = Math.max(0.05, durs[0] - lead);
+      const vlen = (m[1] * k) / sr;
+      const v1 = vlen * ({ 0: 0.85, 1: 0.92, 2: 0.55 }[coda || 0]);
+      const bodyLen = (x.length - bodyStart) / sr;
+      const total = durs.reduce((a, b) => a + b, 0);
+      const tailAvail = Math.max(0, bodyLen - v1 - 0.02);
+      let tail = Math.min(tailAvail, 0.18);
+      if (total - tail < 0.3 * v1) tail = Math.max(0.04, total - 0.3 * v1);
+      const tailRate = tail > 0 ? tailAvail / tail : 1;
+      const s = Math.max(0.3, (total - tail) / Math.max(0.02, v1));
+      const P0 = sr / VOICE_F0;
+      const bounds = [0]; durs.forEach((dd) => bounds.push(bounds[bounds.length - 1] + dd));
+      const fmap = (tau) => {
+        if (tau < v1 * s) {
+          let pos = tau / s;
+          if (s > 1.5) { pos += 0.015 * Math.sin(2 * Math.PI * 0.6 * tau + 1.0); pos = Math.min(Math.max(pos, 0.005), v1 - 0.005); }
+          return pos;
+        }
+        return v1 + (tau - v1 * s) * tailRate;
+      };
+      const ftarget = (tau) => {
+        let i = 0; while (i < durs.length - 1 && tau >= bounds[i + 1]) i += 1;
+        let f = pitches[i]; const tin = tau - bounds[i];
+        const fp = i > 0 ? pitches[i - 1] : prevF;
+        if (fp && tin < 0.05) { let r = tin / 0.05; r = r * r * (3 - 2 * r); f = fp * Math.pow(f / fp, r); }
+        if (durs[i] >= 0.4 && tin > 0.3) {
+          const depth = Math.min(1, (tin - 0.3) / 0.35) * 0.15;
+          f *= Math.pow(2, depth / 12 * Math.sin(2 * Math.PI * 5.3 * (tin - 0.3)));
+        }
+        return f;
+      };
+      const outN = Math.floor(total * sr);
+      const y = new Float32Array(outN + Math.ceil(2 * P0) + 8);
+      let tau = 0;
+      while (tau < total - 0.002) {
+        const f = ftarget(tau); const Pt = sr / f;
+        const tc = fmap(tau);
+        const c = Math.round(tc * sr / P0) * P0;
+        let a = Math.round(c - P0); const b = Math.round(c + P0);
+        if (a < 0) a = 0;
+        if (bodyStart + b > x.length) break;
+        const L = b - a, g = Pt / P0, o = Math.round(tau * sr - P0);
+        for (let i = 0; i < L; i += 1) {
+          const oi = o + i; if (oi < 0 || oi >= y.length) continue;
+          const w = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (L - 1));
+          y[oi] += x[bodyStart + a + i] * w * g;
+        }
+        tau += Pt / sr;
+      }
+      let yy = y.subarray(0, outN);
+      if (total >= 0.6) {
+        for (let i = 0; i < outN; i += 1) {
+          const tt = i / sr / total;
+          yy[i] *= tt < 0.4 ? 0.85 + 0.15 * Math.sin(tt / 0.4 * Math.PI / 2) : 1.0 - 0.2 * Math.min(1, Math.max(0, (tt - 0.4) / 0.6));
+        }
+      }
+      const fo = Math.floor(0.025 * sr);
+      for (let i = 0; i < fo; i += 1) yy[outN - fo + i] *= 1 - i / fo;
+      // 모음 RMS 를 0.12 로
+      const r0 = Math.floor(0.02 * sr), r1 = Math.max(r0 + 1, Math.floor(total * sr));
+      let acc = 0; for (let i = r0; i < r1 && i < outN; i += 1) acc += yy[i] * yy[i];
+      const rms = Math.sqrt(acc / Math.max(1, Math.min(r1, outN) - r0)) + 1e-6;
+      const gn = 0.12 / rms; for (let i = 0; i < outN; i += 1) yy[i] *= gn;
+      // 자음 원음 + 12ms 크로스페이드
+      const xf = Math.min(Math.floor(0.012 * sr), onsetN, outN);
+      const out = new Float32Array(onsetN - xf + outN);
+      const fi = Math.min(Math.floor(0.004 * sr), onsetN);
+      for (let i = 0; i < onsetN - xf; i += 1) out[i] = x[onsetSkip + i] * (i < fi ? i / fi : 1);
+      for (let i = 0; i < xf; i += 1) {
+        const r = i / xf;
+        out[onsetN - xf + i] = x[onsetSkip + onsetN - xf + i] * (1 - r) + yy[i] * r;
+      }
+      for (let i = xf; i < outN; i += 1) out[onsetN - xf + i] = yy[i];
+      return { y: out, onsetLen: (onsetN - xf) / sr, sr };
+    }
+
+    // plan(한 줄) → 음성 조각들을 ctx 시간 t0 부터 예약. 미리 불러 둔 buf 를 쓴다.
+    function scheduleVoice(ctx, plan, t0, sixteenth) {
+      ensureVoiceChain(ctx);
+      const groups = []; let t = 0; let afterRest = true;
+      plan.bars.forEach((bar) => bar.forEach((n) => {
+        const d = n.units * sixteenth;
+        if (n.rest) afterRest = true;
+        if (!n.rest && n.syl && n.syl !== "-" && n.syl !== null) { groups.push({ ch: n.spk || n.syl, t, f: [noteFreq(n.pitch)], d: [d], phraseStart: afterRest }); afterRest = false; }
+        else if (!n.rest && n.syl === "-" && groups.length && groups[groups.length - 1].t + groups[groups.length - 1].d.reduce((a, b) => a + b, 0) >= t - 1e-6) {
+          groups[groups.length - 1].f.push(noteFreq(n.pitch)); groups[groups.length - 1].d.push(d);
+        }
+        t += d;
+      }));
+      const rendered = []; let prevF = null, prevEnd = null, prevDur = null;
+      groups.forEach((g) => {
+        const buf = voiceCache.get(String(g.ch.codePointAt(0)));
+        const m = voiceMeta && voiceMeta[String(g.ch.codePointAt(0))];
+        const gd = g.d.reduce((a, b) => a + b, 0);
+        if (!buf || !m) { prevF = g.f[g.f.length - 1]; prevEnd = g.t + gd; prevDur = g.d[g.d.length - 1]; return; }
+        const phraseStart = g.phraseStart || prevEnd === null || g.t > prevEnd + 1e-3;
+        const shift = phraseStart ? 0 : Math.min(onsetSeconds(buf, m), 0.06, 0.3 * prevDur);
+        const r = renderGroup(buf, m, g.f, g.d, prevF, codaType(g.ch), shift);
+        rendered.push({ start: g.t - shift, shiftN: Math.round(shift * r.sr), y: r.y, sr: r.sr });
+        prevF = g.f[g.f.length - 1]; prevEnd = g.t + gd; prevDur = g.d[g.d.length - 1];
+      });
+      // 앞 음 꼬리를 다음 자음 동안 0.5 까지 줄여 자연스럽게 잇기
+      for (let i = 1; i < rendered.length; i += 1) {
+        const p = rendered[i - 1], q = rendered[i];
+        const from = Math.round((q.start - p.start) * p.sr); const ov = q.shiftN + Math.round(0.02 * p.sr);
+        for (let j = 0; j < ov && from + j < p.y.length; j += 1) if (from + j >= 0) p.y[from + j] *= 1 - 0.5 * (j / ov);
+      }
+      rendered.forEach((r) => {
+        const ab = ctx.createBuffer(1, r.y.length, r.sr); ab.copyToChannel(r.y, 0);
+        const src = ctx.createBufferSource(); src.buffer = ab;
+        const g = ctx.createGain(); g.gain.value = 1;
+        src.connect(g); g.connect(voiceDry); g.connect(reverbNode);
+        const when = t0 + r.start;
+        if (when < ctx.currentTime) src.start(ctx.currentTime, ctx.currentTime - when); else src.start(when);
+        activeNodes.push(g);
+      });
+      return rendered.length;
+    }
+
+    async function prepareVoices(ctx, plans) {
+      await loadVoiceMeta();
+      if (!voiceMeta) return false;
+      const need = new Set();
+      plans.forEach(({ plan }) => plan.bars.forEach((bar) => bar.forEach((n) => { if (!n.rest && n.syl && n.syl !== "-") need.add(n.syl); })));
+      await Promise.all(Array.from(need).map((ch) => loadSyllable(ctx, ch)));
+      return true;
+    }
+
     // ======================= 들어 보기(가락 재생) =======================
     // 가락: 미래엔 중학교 음악① 26쪽 「어머니의 마음」(양주동 작사·이흥렬 작곡) 라장조 3/4 악보에서 읽음.
     // 각 줄의 음은 RHYTHM_CODES 의 음표 순서(쉼표 제외)와 하나씩 짝이 된다.
@@ -1018,6 +1290,15 @@
         });
         if (c < chars.length) extras.push({ bar: bi + 1, chars: chars.slice(c).join("") });
       });
+      // 발음 규칙: 마디 경계('/')를 넣은 글자열로 변환해 각 음표에 spk(실제로 부를 글자)를 붙인다
+      const seq = []; const ref = [];
+      bars.forEach((bar, bi) => {
+        if (bi > 0) seq.push("/");
+        bar.forEach((n) => { if (!n.rest && n.syl) { seq.push(n.syl); ref.push(n); } });
+      });
+      const spoken = pronounce(seq);
+      let r = 0;
+      seq.forEach((c, i) => { if (c !== "/") { ref[r].spk = spoken[i]; r += 1; } });
       return { lineNum, bars, extras };
     }
 
@@ -1039,7 +1320,8 @@
           else if (syl === null) { cls.push("empty"); syl = "□"; }
           else if (syl === "-") { cls.push("hold"); syl = "–"; }
           if (isOriginal && !n.rest) cls.push("orig");
-          return `<div class="${cls.join(" ")}" data-bar="${bi}" data-note="${ni}"><div class="ksym">${n.symbol}</div><div class="ksyl">${escapeHtml(syl)}</div></div>`;
+          const spk = (!n.rest && n.syl && n.syl !== "-" && n.spk && n.spk !== n.syl) ? n.spk : "";
+          return `<div class="${cls.join(" ")}" data-bar="${bi}" data-note="${ni}"><div class="ksym">${n.symbol}</div><div class="ksyl">${escapeHtml(syl)}</div><div class="kspk">${escapeHtml(spk)}</div></div>`;
         }).join("");
         const need = LINE_RULES[plan.lineNum][bi];
         const have = bar.filter((n) => !n.rest && n.syl !== null).length;
@@ -1160,14 +1442,24 @@
     }
 
     // plans: [{plan, isOriginal, label}] 를 차례로 재생
-    function playPlans(plans) {
+    async function playPlans(plans) {
       const ctx = getAudio();
       stopPlayback("");
       setPlayingUI(true);
       const myId = playId;
       const bpm = Number(document.getElementById("tempoSel").value);
-      const speak = document.getElementById("speakChk").checked && ("speechSynthesis" in window);
-      toneLevel = speak ? 0.3 : 0.5;
+      const mode = document.getElementById("soundSel").value;
+      const accomp = document.getElementById("accompChk").checked;
+      let sing = mode === "sing";
+      if (sing) {
+        playStatus.textContent = "노래 음성을 불러오는 중…";
+        const ok = await prepareVoices(ctx, plans);
+        if (playId !== myId) return;
+        if (!ok) { sing = false; playStatus.textContent = "노래 음성 파일을 불러오지 못해 가락만 들려줍니다."; }
+      }
+      const speak = mode === "speak" && ("speechSynthesis" in window);
+      toneLevel = sing ? 0.16 : (speak ? 0.3 : 0.5);
+      if (!accomp && sing) toneLevel = 0;
       if (speak) warmUpSpeech();
       const sixteenth = 60 / bpm / 4;
       const quarter = sixteenth * 4;
@@ -1189,10 +1481,11 @@
           schedule(t + k * quarter, () => { playStatus.textContent = `${label} — ${word}`; });
         }
         t += 3 * quarter;
+        if (sing) scheduleVoice(ctx, plan, t0 + t, sixteenth);
         plan.bars.forEach((bar, bi) => {
           bar.forEach((n, ni) => {
             const dur = n.units * sixteenth;
-            if (!n.rest) playTone(ctx, noteFreq(n.pitch), t0 + t, dur * 0.95);
+            if (!n.rest && toneLevel > 0) playTone(ctx, noteFreq(n.pitch), t0 + t, dur * 0.95);
             const start = t;
             schedule(start, () => {
               kstrip.querySelectorAll(".knote.on").forEach((el) => el.classList.remove("on"));
@@ -1213,11 +1506,11 @@
       const lineNum = Number(lineSelect.value);
       const text = lyricsInput.value.trim();
       if (!text) { playStatus.textContent = "먼저 위 칸에 가사를 써 주세요. (원곡 가사로 먼저 들어 봐도 됩니다)"; return; }
-      playPlans([{ plan: buildLinePlan(lineNum, text), isOriginal: false, label: `${lineNum}줄 내 가사` }]);
+      void playPlans([{ plan: buildLinePlan(lineNum, text), isOriginal: false, label: `${lineNum}줄 내 가사` }]);
     });
     document.getElementById("playOrig").addEventListener("click", () => {
       const lineNum = Number(lineSelect.value);
-      playPlans([{ plan: buildLinePlan(lineNum, ORIGINAL_LYRICS[lineNum]), isOriginal: true, label: `${lineNum}줄 원곡 가사` }]);
+      void playPlans([{ plan: buildLinePlan(lineNum, ORIGINAL_LYRICS[lineNum]), isOriginal: true, label: `${lineNum}줄 원곡 가사` }]);
     });
     document.getElementById("playAll").addEventListener("click", () => {
       const current = Number(lineSelect.value);
@@ -1228,7 +1521,7 @@
         const mine = Boolean(text);
         plans.push({ plan: buildLinePlan(i, mine ? text : ORIGINAL_LYRICS[i]), isOriginal: !mine, label: `${i}줄 ${mine ? "내 가사" : "원곡 가사(아직 안 씀)"}` });
       }
-      playPlans(plans);
+      void playPlans(plans);
     });
     stopBtn.addEventListener("click", () => stopPlayback("멈췄습니다."));
     lyricsInput.addEventListener("input", refreshStrip);
