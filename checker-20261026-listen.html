@@ -370,10 +370,16 @@
     }
     .knote .ksym { font-size: 1.05rem; line-height: 1.2; color: #4a5568; }
     .knote .ksyl { font-size: 1.35rem; font-weight: 700; line-height: 1.3; color: var(--ink); }
-    .knote input.kcell { width: 100%; min-width: 0; margin: 0; padding: 4px 0; border: 1px solid #c9d2df; border-radius: 6px; background: #fff; text-align: center; font-size: 1.5rem; font-weight: 700; line-height: 1.3; color: var(--ink); }
-    .knote input.kcell:focus { outline: 2px solid var(--blue); border-color: var(--blue); }
-    .knote input.kcell::placeholder { color: #c3cad6; font-weight: 500; }
-    .knote.orig input.kcell { color: #556; font-weight: 600; }
+    .kwrap { position: relative; }
+    .typer { position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; border: 0; padding: 0; margin: 0; font-size: 16px; pointer-events: none; z-index: 0; }
+    .knote .kcell { position: relative; z-index: 1; width: 100%; min-width: 0; margin: 0; padding: 4px 0; border: 1px solid #c9d2df; border-radius: 6px; background: #fff; text-align: center; font-size: 1.5rem; font-weight: 700; line-height: 1.3; color: var(--ink); cursor: text; min-height: 1.3em; white-space: nowrap; overflow: hidden; }
+    .knote .kcell .ph { color: #c3cad6; font-weight: 500; }
+    .knote .kcell.cur { outline: 2px solid var(--blue); border-color: var(--blue); }
+    .kwrap.focused .kcell.cur::after { content: ""; display: inline-block; width: 2px; height: 1.1em; background: var(--blue); vertical-align: -0.15em; margin-left: 1px; animation: kblink 1s steps(1) infinite; }
+    .kwrap.focused .kcell.cur.filled::after { display: none; }
+    @keyframes kblink { 50% { opacity: 0; } }
+    .knote .kcell.ime { color: #2b6cb0; }
+    .knote.orig .kcell { color: #556; font-weight: 600; }
     .kcount.short { color: var(--red); font-weight: 600; }
     .linkbtn { background: none; border: none; color: var(--blue); text-decoration: underline; cursor: pointer; font-size: 0.9rem; padding: 0 4px; margin: 0; width: auto; display: inline; }
     .knote.hold .ksyl { color: #8a94a6; }
@@ -436,8 +442,11 @@
 
     <section class="player" id="player" aria-label="들어 보기">
       <div class="player-title">🎧 들어 보기 — 내 가사가 가락에 어떻게 얹히는지 듣고 보기</div>
-      <p class="player-help">음표 밑 칸에 한 글자씩 쓰면 바로 다음 칸으로 넘어갑니다. ▶ 를 누르면 글자 수·말 흐름을 검사하고, 합성 음성이 내 가사를 가락에 맞춰 <b>노래로 불러 주며</b>, 지금 부르는 글자가 노란색으로 켜집니다. 발음이 달라지는 글자(잊으→이즈)는 칸 아래에 작게 표시되고, 빈 칸이 있으면 그 자리는 가락만 나옵니다.</p>
-      <div class="kstrip" id="kstrip"></div>
+      <p class="player-help">음표 밑 칸을 누르고 한 글자씩 쓰면 바로 다음 칸으로 넘어갑니다. 고칠 칸을 누르면 그 글자만 바꿔 쓸 수 있습니다. ▶ 를 누르면 글자 수·말 흐름을 검사하고, 합성 음성이 내 가사를 가락에 맞춰 <b>노래로 불러 주며</b>, 지금 부르는 글자가 노란색으로 켜집니다. 발음이 달라지는 글자(잊으→이즈)는 칸 아래에 작게 표시되고, 빈 칸이 있으면 그 자리는 가락만 나옵니다.</p>
+      <div class="kwrap" id="kwrap">
+        <input id="typer" class="typer" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" aria-label="가사 입력(음표 칸)">
+        <div class="kstrip" id="kstrip"></div>
+      </div>
       <div class="kextra" id="kextra" hidden></div>
       <div class="player-controls">
         <button type="button" id="playMine" class="primary">▶ 검사하고 듣기</button>
@@ -1349,75 +1358,86 @@
       for (let i = 0; i < bars[bi].length; i += 1) { if (bars[bi][i].rest) continue; if (i === ni) return chars[c] || ""; c += 1; }
       return "";
     }
-    function cellsToText() {
-      const bars = [];
-      kstrip.querySelectorAll(".kbar").forEach((box) => { bars.push(Array.from(box.querySelectorAll("input.kcell")).map((el) => Array.from(el.value.trim())[0] || "").join("")); });
-      return bars.join("/");
+    // 글자 입력: 보이지 않는 한 줄 입력창(#typer) 하나가 글쇠를 받고, 음표 밑 칸은 그 내용을 보여 주기만 한다.
+    // (칸마다 입력창을 두고 초점을 옮기면 한글 IME 조합이 끊겨 글자가 사라지는 문제가 있었음 — 2026-10-26)
+    const kwrap = document.getElementById("kwrap");
+    const typer = document.getElementById("typer");
+    let composing = false;
+    const isJamo = (ch) => ch >= "ㄱ" && ch <= "ㆎ";
+    const isAllowed = (ch) => ch === "-" || (ch >= "가" && ch <= "힣") || isJamo(ch);
+    function charsOf(text) { return Array.from(text || "").filter(isAllowed); }
+    function barSizes(lineNum) { return rhythmToNotes(RHYTHM_CODES[lineNum]).map((bar) => bar.filter((n) => !n.rest).length); }
+    function charsToText(lineNum, chars) {
+      // 글자열을 마디별 음표 수대로 끊어 '/' 로 잇는다(남는 글자는 마지막 마디 뒤에 붙어 '남는 글자'로 표시됨)
+      const sizes = barSizes(lineNum); const parts = []; let i = 0;
+      sizes.forEach((n, bi) => { const end = bi === sizes.length - 1 ? chars.length : Math.min(chars.length, i + n); parts.push(chars.slice(i, end).join("")); i = end; });
+      return parts.join("/");
     }
-    function updateDerived() {
-      // 칸 내용을 숨은 입력에 넣고, 발음 표시·글자 수만 갱신(칸은 다시 만들지 않음)
+    function caretIndex() {
+      // 입력창 커서 앞에 있는 글자 수 = 지금 쓰고 있는 칸 번호
+      const pos = typer.selectionStart == null ? typer.value.length : typer.selectionStart;
+      let k = charsOf(typer.value.slice(0, pos)).length;
+      if (composing && k > 0) k -= 1;          // 조합 중인 글자는 그 칸을 가리킨다
+      return k;
+    }
+    function cleanTyper() {
+      if (composing) return;
+      const v = typer.value; const chars = charsOf(v);
+      if (chars.length === Array.from(v).length) return;
+      const pos = typer.selectionStart == null ? v.length : typer.selectionStart;
+      const before = charsOf(v.slice(0, pos)).length;
+      typer.value = chars.join("");
+      try { typer.setSelectionRange(before, before); } catch (e) {}
+    }
+    function syncFromTyper() {
+      cleanTyper();
       const lineNum = Number(lineSelect.value);
-      lyricsInput.value = cellsToText(); draftLines[lineNum] = lyricsInput.value;
-      const plan = buildLinePlan(lineNum, lyricsInput.value);
-      plan.bars.forEach((bar, bi) => {
-        const box = kstrip.querySelectorAll(".kbar")[bi]; if (!box) return;
-        bar.forEach((n, ni) => {
-          const el = box.querySelector(`.knote[data-note="${ni}"]`); if (!el || n.rest) return;
-          const spk = (n.syl && n.syl !== "-" && n.spk && n.spk !== n.syl) ? n.spk : "";
-          el.querySelector(".kspk").textContent = spk;
-        });
-        const need = bar.filter((n) => !n.rest).length, have = bar.filter((n) => !n.rest && n.syl !== null).length;
-        const kc = box.querySelector(".kcount"); kc.textContent = `${have} / ${need}글자`; kc.classList.toggle("short", have < need);
-      });
+      const chars = charsOf(typer.value);
+      const text = charsToText(lineNum, chars.filter((ch) => !isJamo(ch)));
+      lyricsInput.value = text; draftLines[lineNum] = text;
       gateBox.hidden = true;
-      playStatus.textContent = `${lineNum}줄 — 지금 쓴 가사가 음표에 놓인 모습입니다.`;
+      if (!playing) renderStrip(buildLinePlan(lineNum, text), false, chars);
+      playStatus.textContent = chars.length ? `${lineNum}줄 — 지금 쓴 가사가 음표에 놓인 모습입니다.` : `${lineNum}줄 — 칸에 한 글자씩 써 보세요. 흐린 글자는 원곡 가사입니다.`;
     }
-    function allCells() { return Array.from(kstrip.querySelectorAll("input.kcell")); }
-    function fillFrom(cell, text) {
-      // 여러 글자(붙여넣기·연속 입력)를 이 칸부터 차례로 나눠 넣고 마지막 다음 칸에 초점
-      const cells = allCells(); let i = cells.indexOf(cell); const chars = Array.from(text).filter((ch) => ch === "-" || (ch >= "가" && ch <= "힣"));
-      chars.forEach((ch) => { if (i < cells.length) { cells[i].value = ch; i += 1; } });
-      updateDerived();
-      if (i < cells.length) cells[i].focus(); else if (cells.length) cells[cells.length - 1].blur();
+    function markCaret() {
+      const k = caretIndex();
+      kstrip.querySelectorAll(".kcell").forEach((el) => { const on = Number(el.dataset.k) === k; el.classList.toggle("cur", on); el.classList.toggle("ime", on && composing); });
     }
-    function wireCells() {
-      allCells().forEach((cell) => {
-        // 한글 IME: 조합 중(자모만 있거나 isComposing)에는 손대지 않고, 완성 글자가 생겼을 때만 처리
-        const isJamo = (ch) => ch >= "ㄱ" && ch <= "ㆎ";
-        const handle = (ev) => {
-          if (ev && ev.isComposing) return;
-          const v = Array.from(cell.value);
-          if (v.some(isJamo)) return;                       // 아직 조합 중
-          const ok = v.filter((ch) => ch === "-" || (ch >= "가" && ch <= "힣"));
-          if (ok.length !== v.length) { cell.value = ok.join(""); }
-          if (ok.length > 1) { cell.value = ok[0]; updateDerived(); fillFrom(allCells()[allCells().indexOf(cell) + 1], ok.slice(1).join("")); return; }
-          updateDerived();
-          if (ok.length === 1 && cell.dataset.adv !== ok[0] + "@" + cell.value) {
-            cell.dataset.adv = ok[0] + "@" + cell.value;
-            const cells = allCells(); const i = cells.indexOf(cell); if (i + 1 < cells.length) cells[i + 1].focus();
-          }
-          if (ok.length === 0) cell.dataset.adv = "";
-        };
-        cell.addEventListener("input", handle);
-        cell.addEventListener("compositionend", () => handle(null));
-        cell.addEventListener("keydown", (ev) => {
-          const cells = allCells(); const i = cells.indexOf(cell);
-          if (ev.key === "Backspace" && cell.value === "" && i > 0) { ev.preventDefault(); cells[i - 1].value = ""; cells[i - 1].focus(); updateDerived(); }
-          else if (ev.key === "ArrowLeft" && i > 0) { ev.preventDefault(); cells[i - 1].focus(); }
-          else if (ev.key === "ArrowRight" && i + 1 < cells.length) { ev.preventDefault(); cells[i + 1].focus(); }
-          else if (ev.key === "Enter") { ev.preventDefault(); document.getElementById("playMine").click(); }
-        });
-        cell.addEventListener("paste", (ev) => { ev.preventDefault(); fillFrom(cell, (ev.clipboardData || window.clipboardData).getData("text")); });
-        cell.addEventListener("focus", () => { try { cell.setSelectionRange(cell.value.length, cell.value.length); } catch (e) {} });
+    function placeCaret(k, select) {
+      // k번째 칸에 커서를 두고(그 칸에 글자가 있으면 선택해서 덮어쓰게), 입력창에 초점
+      const arr = Array.from(typer.value); let n = 0, pos = arr.length;
+      for (let i = 0; i < arr.length; i += 1) { if (isAllowed(arr[i])) { if (n === k) { pos = i; break; } n += 1; } }
+      typer.focus({ preventScroll: true });
+      try { if (select && pos < arr.length) typer.setSelectionRange(pos, pos + 1); else typer.setSelectionRange(pos, pos); } catch (e) {}
+      markCaret();
+    }
+    function wireTyper() {
+      typer.addEventListener("compositionstart", () => { composing = true; });
+      typer.addEventListener("compositionend", () => { composing = false; setTimeout(() => { syncFromTyper(); markCaret(); }, 0); });
+      typer.addEventListener("input", () => { syncFromTyper(); markCaret(); });
+      typer.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" && !ev.isComposing) { ev.preventDefault(); document.getElementById("playMine").click(); }
+      });
+      ["keyup", "click", "select"].forEach((t) => typer.addEventListener(t, markCaret));
+      document.addEventListener("selectionchange", () => { if (document.activeElement === typer) markCaret(); });
+      typer.addEventListener("focus", () => { kwrap.classList.add("focused"); markCaret(); });
+      typer.addEventListener("blur", () => { kwrap.classList.remove("focused"); });
+      kstrip.addEventListener("click", (ev) => {
+        const note = ev.target.closest(".knote"); if (!note || note.classList.contains("rest")) { if (!playing) placeCaret(charsOf(typer.value).length, false); return; }
+        const cell = note.querySelector(".kcell"); if (!cell) return;
+        const k = Number(cell.dataset.k); const total = charsOf(typer.value).length;
+        placeCaret(Math.min(k, total), k < total);
       });
     }
+    wireTyper();
     const kextra = document.getElementById("kextra");
     const playStatus = document.getElementById("playStatus");
     const stopBtn = document.getElementById("stopPlay");
     const playButtons = ["playMine", "playOrig", "playAll"].map((id) => document.getElementById(id));
 
-    function renderStrip(plan, isOriginal) {
+    function renderStrip(plan, isOriginal, typed) {
       kstrip.innerHTML = "";
+      let k = 0;
       plan.bars.forEach((bar, bi) => {
         const box = document.createElement("div");
         box.className = "kbar";
@@ -1425,17 +1445,20 @@
           const cls = ["knote"];
           if (n.rest) return `<div class="knote rest" data-bar="${bi}" data-note="${ni}"><div class="ksym">${n.symbol}</div><div class="ksyl">쉼</div><div class="kspk"></div></div>`;
           if (isOriginal) cls.push("orig");
-          const val = n.syl === null ? "" : n.syl;
+          const val = typed ? (typed[k] || "") : (n.syl === null ? "" : n.syl);
           const ph = originalSyllable(plan.lineNum, bi, ni);
           const spk = (n.syl && n.syl !== "-" && n.spk && n.spk !== n.syl) ? n.spk : "";
-          return `<div class="${cls.join(" ")}" data-bar="${bi}" data-note="${ni}"><div class="ksym">${n.symbol}</div><input class="kcell" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${escapeHtml(ph)}" value="${escapeHtml(val)}" data-bar="${bi}" data-idx="${ni}"><div class="kspk">${escapeHtml(spk)}</div></div>`;
+          const inner = val ? escapeHtml(val) : `<span class="ph">${escapeHtml(ph)}</span>`;
+          const html = `<div class="${cls.join(" ")}" data-bar="${bi}" data-note="${ni}"><div class="ksym">${n.symbol}</div><div class="kcell${val ? " filled" : ""}" data-k="${k}">${inner}</div><div class="kspk">${escapeHtml(spk)}</div></div>`;
+          k += 1;
+          return html;
         }).join("");
         const need = LINE_RULES[plan.lineNum][bi];
         const have = bar.filter((n) => !n.rest && n.syl !== null).length;
         box.innerHTML = `<div class="kbar-title">${bi + 1}마디</div><div class="knotes">${notesHtml}</div><div class="kcount${have < need ? " short" : ""}">${have} / ${need}글자</div>`;
         kstrip.appendChild(box);
       });
-      wireCells();
+      if (!isOriginal) markCaret();
       if (plan.extras.length) {
         kextra.hidden = false;
         kextra.textContent = "음표가 없어 남는 글자: " + plan.extras.map((e) => `${e.bar}마디 ‘${e.chars}’`).join(", ");
@@ -1449,7 +1472,8 @@
       const lineNum = Number(lineSelect.value);
       if (playing) return;
       const text = lyricsInput.value.trim();
-      renderStrip(buildLinePlan(lineNum, text), false);
+      if (document.activeElement !== typer || !composing) typer.value = charsOf(text).join("");
+      renderStrip(buildLinePlan(lineNum, text), false, lyricsInput.hidden ? charsOf(typer.value) : undefined);   // 한 줄 입력이 열려 있으면 그 "/" 나눔대로 보여 준다
       playStatus.textContent = text ? `${lineNum}줄 — 지금 쓴 가사가 음표에 놓인 모습입니다.` : `${lineNum}줄 — 칸에 한 글자씩 써 보세요. 흐린 글자는 원곡 가사입니다.`;
     }
 
@@ -1623,7 +1647,7 @@
       gateBox.hidden = false;
       gateBox.innerHTML = `<div class="gate-title">⚠ 글자 수가 음표와 맞지 않는 마디가 있어요</div><ul>${problems.map((p) => `<li>${escapeHtml(p)}</li>`).join("")}</ul>
         <div class="gate-btns"><button type="button" class="fix" id="gateFix">먼저 고치기</button><button type="button" id="gatePlay">그래도 들어 보기</button></div>`;
-      document.getElementById("gateFix").addEventListener("click", () => { gateBox.hidden = true; lyricsInput.focus(); });
+      document.getElementById("gateFix").addEventListener("click", () => { gateBox.hidden = true; if (lyricsInput.hidden) placeCaret(charsOf(typer.value).length, false); else lyricsInput.focus(); });
       document.getElementById("gatePlay").addEventListener("click", () => { gateBox.hidden = true; onPlay(); });
       gateBox.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
@@ -1659,7 +1683,7 @@
       document.getElementById("toggleText").textContent = show ? "한 줄 입력 닫기" : "칸 입력이 안 되면 여기를 눌러 한 줄로 쓰기";
       if (show) lyricsInput.focus();
     });
-    document.getElementById("clearCells").addEventListener("click", () => { lyricsInput.value = ""; draftLines[Number(lineSelect.value)] = ""; gateBox.hidden = true; refreshStrip(); const c = allCells(); if (c.length) c[0].focus(); });
+    document.getElementById("clearCells").addEventListener("click", () => { lyricsInput.value = ""; typer.value = ""; draftLines[Number(lineSelect.value)] = ""; gateBox.hidden = true; refreshStrip(); placeCaret(0, false); });
     lyricsInput.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); void checkLyrics(); } });
     refreshStrip();
 
