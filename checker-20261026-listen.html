@@ -1187,7 +1187,7 @@
       // 자음 원음 + 12ms 크로스페이드
       const xf = Math.min(Math.floor(0.012 * sr), onsetN, outN);
       const out = new Float32Array(onsetN - xf + outN);
-      const fi = Math.min(Math.floor(0.004 * sr), onsetN);
+      const fi = Math.min(Math.floor((m[3] === 0 && onsetN < Math.round(0.05 * sr) ? 0.03 : 0.004) * sr), onsetN);  // 모음으로 시작하면 30ms 부드럽게
       for (let i = 0; i < onsetN - xf; i += 1) out[i] = x[onsetSkip + i] * (i < fi ? i / fi : 1);
       for (let i = 0; i < xf; i += 1) {
         const r = i / xf;
