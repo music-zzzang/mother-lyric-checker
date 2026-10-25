@@ -1068,28 +1068,43 @@
       return "ㄴㅁㅇㄹ".includes(JT[t]) ? 2 : 1;   // 2 = 공명 받침, 1 = 파열 받침
     }
     // 한 글자(+이어지는 '-')를 하나의 이어진 음으로 렌더. 반환: {y, onsetLen(초), sr}
-    function onsetSeconds(buf, m) {
-      const sr = buf.sampleRate, k = sr / VOICE_SR;
-      const bodyStart = Math.round(m[0] * k);
-      const onsetN = Math.min(bodyStart, Math.round(0.10 * sr));
-      const xf = Math.min(Math.floor(0.012 * sr), onsetN);
-      return (onsetN - xf) / sr;
-    }
-    function renderGroup(buf, m, pitchesIn, dursIn, prevF, coda, shift) {
+    // 자음(온셋) 구간: 최대 100ms, 앞쪽의 거의 무음인 부분(모음 RMS 의 8% 미만)은 버린다
+    function onsetRange(buf, m) {
       const sr = buf.sampleRate, x = buf.getChannelData(0), k = sr / VOICE_SR;
       const bodyStart = Math.round(m[0] * k);
-      const onsetSkip = Math.max(0, bodyStart - Math.round(0.10 * sr));
-      const onsetN = bodyStart - onsetSkip;
+      let onsetSkip = Math.max(0, bodyStart - Math.round(0.10 * sr));
+      const vN = Math.min(Math.round(0.10 * sr), x.length - bodyStart);
+      let acc = 0; for (let i = 0; i < vN; i += 1) acc += x[bodyStart + i] * x[bodyStart + i];
+      const vr = Math.sqrt(acc / Math.max(1, vN)) + 1e-6;
+      const win = Math.max(1, Math.round(0.005 * sr));
+      for (let i = onsetSkip; i + win <= bodyStart; i += Math.round(0.002 * sr)) {
+        let a = 0; for (let j = 0; j < win; j += 1) a += x[i + j] * x[i + j];
+        if (Math.sqrt(a / win) > 0.08 * vr) { onsetSkip = i; break; }
+        if (i + win + Math.round(0.002 * sr) > bodyStart) onsetSkip = bodyStart;
+      }
+      return { bodyStart, onsetSkip, onsetN: bodyStart - onsetSkip };
+    }
+    function onsetSeconds(buf, m) {
+      const sr = buf.sampleRate; const o = onsetRange(buf, m);
+      const xf = Math.min(Math.floor(0.012 * sr), o.onsetN);
+      return (o.onsetN - xf) / sr;
+    }
+    function renderGroup(buf, m, pitchesIn, dursIn, prevF, coda, shift, extend) {
+      const sr = buf.sampleRate, x = buf.getChannelData(0), k = sr / VOICE_SR;
+      const { bodyStart, onsetSkip, onsetN } = onsetRange(buf, m);
       // 자음 중 박보다 앞으로 못 나간 몫(lead)은 첫 음의 음가에서 뺀다 → 그룹의 끝이 음가 끝과 일치
       const xf0 = Math.min(Math.floor(0.012 * sr), onsetN);
       const lead = Math.max(0, (onsetN - xf0) / sr - (shift || 0));
       const pitches = pitchesIn.slice(); const durs = dursIn.slice();
       durs[0] = Math.max(0.05, durs[0] - lead);
+      // 다음 글자와 겹칠 몫(extend): 마지막 음을 조금 더 끌어 다음 글자 위로 넘긴다 (레가토)
+      durs[durs.length - 1] += (extend || 0);
       const vlen = (m[1] * k) / sr;
       const v1 = vlen * ({ 0: 0.85, 1: 0.92, 2: 0.55 }[coda || 0]);
       const bodyLen = (x.length - bodyStart) / sr;
       const total = durs.reduce((a, b) => a + b, 0);
-      const tailAvail = Math.max(0, bodyLen - v1 - 0.02);
+      // 꼬리 = 모음 끝(v1)부터 유성 구간 끝(+30ms 파열 해제)까지만. 그 뒤의 잦아드는 무음은 쓰지 않는다
+      const tailAvail = Math.min(Math.max(0.02, vlen - v1 + 0.03), Math.max(0.02, bodyLen - v1 - 0.01));
       let tail = Math.min(tailAvail, 0.18);
       if (total - tail < 0.3 * v1) tail = Math.max(0.04, total - 0.3 * v1);
       const tailRate = tail > 0 ? tailAvail / tail : 1;
@@ -1140,8 +1155,8 @@
           yy[i] *= tt < 0.4 ? 0.85 + 0.15 * Math.sin(tt / 0.4 * Math.PI / 2) : 1.0 - 0.2 * Math.min(1, Math.max(0, (tt - 0.4) / 0.6));
         }
       }
-      const fo = Math.floor(0.025 * sr);
-      for (let i = 0; i < fo; i += 1) yy[outN - fo + i] *= 1 - i / fo;
+      const fo = Math.max(Math.floor(0.025 * sr), Math.floor(((extend || 0) + 0.01) * sr));
+      for (let i = 0; i < fo && outN - fo + i >= 0; i += 1) yy[outN - fo + i] *= 1 - i / fo;
       // 모음 RMS 를 0.12 로
       const r0 = Math.floor(0.02 * sr), r1 = Math.max(r0 + 1, Math.floor(total * sr));
       let acc = 0; for (let i = r0; i < r1 && i < outN; i += 1) acc += yy[i] * yy[i];
@@ -1174,23 +1189,21 @@
         t += d;
       }));
       const rendered = []; let prevF = null, prevEnd = null, prevDur = null;
-      groups.forEach((g) => {
+      groups.forEach((g, gi) => {
+        const nx = groups[gi + 1];
+        const gEnd = g.t + g.d.reduce((a, b) => a + b, 0);
+        const extend = (nx && !nx.phraseStart && Math.abs(nx.t - gEnd) < 1e-3) ? Math.min(0.04, 0.25 * nx.d[0]) : 0;
         const buf = voiceCache.get(String(g.ch.codePointAt(0)));
         const m = voiceMeta && voiceMeta[String(g.ch.codePointAt(0))];
         const gd = g.d.reduce((a, b) => a + b, 0);
         if (!buf || !m) { prevF = g.f[g.f.length - 1]; prevEnd = g.t + gd; prevDur = g.d[g.d.length - 1]; return; }
         const phraseStart = g.phraseStart || prevEnd === null || g.t > prevEnd + 1e-3;
         const shift = phraseStart ? 0 : Math.min(onsetSeconds(buf, m), 0.06, 0.3 * prevDur);
-        const r = renderGroup(buf, m, g.f, g.d, prevF, codaType(g.ch), shift);
+        const r = renderGroup(buf, m, g.f, g.d, prevF, codaType(g.ch), shift, extend);
         rendered.push({ start: g.t - shift, shiftN: Math.round(shift * r.sr), y: r.y, sr: r.sr });
         prevF = g.f[g.f.length - 1]; prevEnd = g.t + gd; prevDur = g.d[g.d.length - 1];
       });
-      // 앞 음 꼬리를 다음 자음 동안 0.5 까지 줄여 자연스럽게 잇기
-      for (let i = 1; i < rendered.length; i += 1) {
-        const p = rendered[i - 1], q = rendered[i];
-        const from = Math.round((q.start - p.start) * p.sr); const ov = q.shiftN + Math.round(0.02 * p.sr);
-        for (let j = 0; j < ov && from + j < p.y.length; j += 1) if (from + j >= 0) p.y[from + j] *= 1 - 0.5 * (j / ov);
-      }
+      // 겹치는 구간은 앞 음이 서서히 꺼지고(렌더 때 페이드) 다음 글자 자음이 올라온다
       rendered.forEach((r) => {
         const ab = ctx.createBuffer(1, r.y.length, r.sr); ab.copyToChannel(r.y, 0);
         const src = ctx.createBufferSource(); src.buffer = ab;
