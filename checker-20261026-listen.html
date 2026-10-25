@@ -975,7 +975,7 @@
       const n = syl.length;
       for (let k = 0; k < n; k += 1) {
         const [l, v, t] = syl[k];
-        if (v === "ㅢ") { if (l !== "ㅇ") syl[k][1] = "ㅣ"; else if (k > 0 && t === "") syl[k][1] = "ㅔ"; }
+        if (v === "ㅢ") { if (l !== "ㅇ") syl[k][1] = "ㅣ"; else if (k > 0 && t === "" && syl[k - 1][2] !== "") syl[k][1] = "ㅔ"; }
       }
       for (let k = 0; k < n - 1; k += 1) {
         const [l1, v1, t1] = syl[k]; const [l2, v2, t2] = syl[k + 1];
@@ -985,8 +985,8 @@
           const base = b === "ㅎ" ? a : "";
           if (l2 === "ㅇ") { syl[k][2] = ""; syl[k + 1][0] = base || "ㅇ"; }
           else if (ASP_L[l2]) { syl[k][2] = base; syl[k + 1][0] = ASP_L[l2]; }
-          else if (l2 === "ㅅ") { syl[k][2] = base; }
-          else if (l2 === "ㄴ") { syl[k][2] = base || "ㄴ"; }
+          else if (l2 === "ㅅ") { syl[k][2] = base; syl[k + 1][0] = "ㅆ"; }
+          else if (l2 === "ㄴ") { syl[k][2] = base || "ㄴ"; if (base === "ㄹ") syl[k + 1][0] = "ㄹ"; }
           else { syl[k][2] = base || "ㄷ"; }
           continue;
         }
@@ -994,10 +994,11 @@
         if (t1 === "ㄾ" && l2 === "ㅇ" && v2 === "ㅣ") { syl[k][2] = "ㄹ"; syl[k + 1][0] = "ㅊ"; continue; }
         if (l2 === "ㅇ") {
           if (t1 === "ㅇ") continue;
-          if (b) { syl[k][2] = a; syl[k + 1][0] = b; } else { syl[k][2] = ""; syl[k + 1][0] = t1; }
+          if (b) { syl[k][2] = a; syl[k + 1][0] = b === "ㅅ" ? "ㅆ" : b; } else { syl[k][2] = ""; syl[k + 1][0] = t1; }
           continue;
         }
-        const nt = NEUT_T[t1];
+        if (t1 === "ㄺ" && l2 === "ㄱ") { syl[k][2] = "ㄹ"; syl[k + 1][0] = "ㄲ"; continue; }
+        const nt = (t1 === "ㄼ" && chars[idx[k]] === "밟") ? "ㅂ" : NEUT_T[t1];
         if (l2 === "ㅎ" && (nt === "ㄱ" || nt === "ㄷ" || nt === "ㅂ")) {
           syl[k][2] = ""; syl[k + 1][0] = { "ㄱ": "ㅋ", "ㄷ": "ㅌ", "ㅂ": "ㅍ" }[nt];
           if (t1 === "ㅈ") syl[k + 1][0] = "ㅊ";
