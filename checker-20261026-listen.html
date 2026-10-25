@@ -1072,7 +1072,7 @@
     function onsetRange(buf, m) {
       const sr = buf.sampleRate, x = buf.getChannelData(0), k = sr / VOICE_SR;
       const bodyStart = Math.round(m[0] * k);
-      let onsetSkip = Math.max(0, bodyStart - Math.round(0.10 * sr));
+      let onsetSkip = Math.max(0, bodyStart - Math.round(0.09 * sr));
       const vN = Math.min(Math.round(0.10 * sr), x.length - bodyStart);
       let acc = 0; for (let i = 0; i < vN; i += 1) acc += x[bodyStart + i] * x[bodyStart + i];
       const vr = Math.sqrt(acc / Math.max(1, vN)) + 1e-6;
@@ -1182,7 +1182,7 @@
       plan.bars.forEach((bar) => bar.forEach((n) => {
         const d = n.units * sixteenth;
         if (n.rest) afterRest = true;
-        if (!n.rest && n.syl && n.syl !== "-" && n.syl !== null) { groups.push({ ch: n.spk || n.syl, t, f: [noteFreq(n.pitch)], d: [d], phraseStart: afterRest }); afterRest = false; }
+        if (!n.rest && n.syl && n.syl !== "-" && n.syl !== null) { groups.push({ ch: n.spk || n.syl, orig: n.syl, t, f: [noteFreq(n.pitch)], d: [d], phraseStart: afterRest }); afterRest = false; }
         else if (!n.rest && n.syl === "-" && groups.length && groups[groups.length - 1].t + groups[groups.length - 1].d.reduce((a, b) => a + b, 0) >= t - 1e-6) {
           groups[groups.length - 1].f.push(noteFreq(n.pitch)); groups[groups.length - 1].d.push(d);
         }
@@ -1193,12 +1193,13 @@
         const nx = groups[gi + 1];
         const gEnd = g.t + g.d.reduce((a, b) => a + b, 0);
         const extend = (nx && !nx.phraseStart && Math.abs(nx.t - gEnd) < 1e-3) ? Math.min(0.04, 0.25 * nx.d[0]) : 0;
-        const buf = voiceCache.get(String(g.ch.codePointAt(0)));
-        const m = voiceMeta && voiceMeta[String(g.ch.codePointAt(0))];
+        let buf = voiceCache.get(String(g.ch.codePointAt(0)));
+        let m = voiceMeta && voiceMeta[String(g.ch.codePointAt(0))];
+        if ((!buf || !m) && g.orig && g.orig !== g.ch) { buf = voiceCache.get(String(g.orig.codePointAt(0))); m = voiceMeta && voiceMeta[String(g.orig.codePointAt(0))]; }
         const gd = g.d.reduce((a, b) => a + b, 0);
         if (!buf || !m) { prevF = g.f[g.f.length - 1]; prevEnd = g.t + gd; prevDur = g.d[g.d.length - 1]; return; }
         const phraseStart = g.phraseStart || prevEnd === null || g.t > prevEnd + 1e-3;
-        const shift = phraseStart ? 0 : Math.min(onsetSeconds(buf, m), 0.06, 0.3 * prevDur);
+        const shift = phraseStart ? 0 : Math.min(onsetSeconds(buf, m), 0.09, 0.4 * prevDur);
         const r = renderGroup(buf, m, g.f, g.d, prevF, codaType(g.ch), shift, extend);
         rendered.push({ start: g.t - shift, shiftN: Math.round(shift * r.sr), y: r.y, sr: r.sr });
         prevF = g.f[g.f.length - 1]; prevEnd = g.t + gd; prevDur = g.d[g.d.length - 1];
@@ -1213,6 +1214,7 @@
         if (when < ctx.currentTime) src.start(ctx.currentTime, ctx.currentTime - when); else src.start(when);
         activeNodes.push(g);
       });
+      window.__voiceGroups = rendered.length; window.__voiceWanted = groups.length;
       return rendered.length;
     }
 
@@ -1220,7 +1222,9 @@
       await loadVoiceMeta();
       if (!voiceMeta) return false;
       const need = new Set();
-      plans.forEach(({ plan }) => plan.bars.forEach((bar) => bar.forEach((n) => { if (!n.rest && n.syl && n.syl !== "-") need.add(n.syl); })));
+      plans.forEach(({ plan }) => plan.bars.forEach((bar) => bar.forEach((n) => {
+        if (!n.rest && n.syl && n.syl !== "-") { need.add(n.syl); if (n.spk && n.spk !== "-") need.add(n.spk); }
+      })));
       await Promise.all(Array.from(need).map((ch) => loadSyllable(ctx, ch)));
       return true;
     }
