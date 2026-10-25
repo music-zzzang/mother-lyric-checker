@@ -1108,14 +1108,18 @@
       let tail = Math.min(tailAvail, 0.18);
       if (total - tail < 0.3 * v1) tail = Math.max(0.04, total - 0.3 * v1);
       const tailRate = tail > 0 ? tailAvail / tail : 1;
-      // 모음의 처음(이중모음의 미끄러짐, 자음 뒤 전이) 80ms 는 원래 속도로 두고, 그 뒤 안정된 부분만 늘인다
-      const hold = Math.max(0, Math.min(0.08, 0.35 * v1, total - tail - 0.05));
-      const s = Math.max(0.3, (total - tail - hold) / Math.max(0.02, v1 - hold));
+      // 모음 시작부터 안정 모음(meta[4], 실측)까지는 원래 속도로 두고, 그 뒤 안정된 부분만 늘인다
+      const sustain = m.length > 4 && m[4] > 0 ? (m[4] * k) / sr : 0.08;
+      const hold = Math.max(0, Math.min(sustain, 0.6 * v1, total - tail - 0.05));
+      // 미끄러짐이 60ms 를 넘는 부분은 1.5배 빠르게 지나간다(가수의 이중모음 처리)
+      const holdOut = hold <= 0.06 ? hold : 0.06 + (hold - 0.06) / 1.5;
+      const holdRate = holdOut > 0 ? hold / holdOut : 1;
+      const s = Math.max(0.3, (total - tail - holdOut) / Math.max(0.02, v1 - hold));
       const P0 = sr / VOICE_F0;
       const bounds = [0]; durs.forEach((dd) => bounds.push(bounds[bounds.length - 1] + dd));
       const fmap = (tau) => {
-        if (tau < hold) return tau;
-        const su = tau - hold;
+        if (tau < holdOut) return tau * holdRate;
+        const su = tau - holdOut;
         if (su < (v1 - hold) * s) {
           let pos = hold + su / s;
           if (s > 1.5) { pos += 0.015 * Math.sin(2 * Math.PI * 0.6 * tau + 1.0); pos = Math.min(Math.max(pos, hold + 0.005), v1 - 0.005); }
