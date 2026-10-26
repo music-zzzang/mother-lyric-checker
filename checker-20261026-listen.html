@@ -398,6 +398,7 @@
     .gate-btns button { margin: 0; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--orange); background: #fff; color: var(--ink); font-size: 0.95rem; cursor: pointer; }
     .gate-btns button.fix { background: var(--orange); color: #fff; }
     .kextra.kflash { background: #ffe1d1; border-radius: 8px; padding: 4px 8px; }
+    .imenote { margin-top: 6px; font-size: 0.9rem; color: #b3471a; background: #fff6ef; border: 1px solid #f0c4a8; border-radius: 8px; padding: 4px 8px; }
     .kcount { margin-top: 4px; font-size: 0.85rem; color: var(--muted); }
     #lyrics { font-size: 1.6rem; padding: 12px 14px; letter-spacing: 0.02em; }
     #lineNum { font-size: 1.2rem; }
@@ -442,12 +443,13 @@
 
     <section class="player" id="player" aria-label="들어 보기">
       <div class="player-title">🎧 들어 보기 — 내 가사가 가락에 어떻게 얹히는지 듣고 보기</div>
-      <p class="player-help">음표 밑 칸을 누르고 한 글자씩 쓰면 바로 다음 칸으로 넘어갑니다. 고칠 칸을 누르면 그 글자만 바꿔 쓸 수 있습니다. ▶ 를 누르면 글자 수·말 흐름을 검사하고, 합성 음성이 내 가사를 가락에 맞춰 <b>노래로 불러 주며</b>, 지금 부르는 글자가 노란색으로 켜집니다. 발음이 달라지는 글자(잊으→이즈)는 칸 아래에 작게 표시되고, 빈 칸이 있으면 그 자리는 가락만 나옵니다.</p>
+      <p class="player-help">음표 밑 칸을 누르고(또는 그냥 바로) 한 글자씩 쓰면 다음 칸으로 넘어갑니다. 자판이 영문 상태여도 한글로 바꿔 넣어 줍니다. 고칠 칸을 누르면 그 글자만 바꿔 쓸 수 있습니다. ▶ 를 누르면 글자 수·말 흐름을 검사하고, 합성 음성이 내 가사를 가락에 맞춰 <b>노래로 불러 주며</b>, 지금 부르는 글자가 노란색으로 켜집니다. 발음이 달라지는 글자(잊으→이즈)는 칸 아래에 작게 표시되고, 빈 칸이 있으면 그 자리는 가락만 나옵니다.</p>
       <div class="kwrap" id="kwrap">
         <input id="typer" class="typer" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" aria-label="가사 입력(음표 칸)">
         <div class="kstrip" id="kstrip"></div>
       </div>
       <div class="kextra" id="kextra" hidden></div>
+      <div class="imenote" id="imeNote" hidden></div>
       <div class="player-controls">
         <button type="button" id="playMine" class="primary">▶ 검사하고 듣기</button>
         <button type="button" id="clearCells">지우기</button>
@@ -1413,23 +1415,111 @@
     }
     function placeCaret(k, select) {
       // k번째 칸에 커서를 두고(그 칸에 글자가 있으면 선택해서 덮어쓰게), 입력창에 초점
+      latinCommit();
       const arr = Array.from(typer.value); let n = 0, pos = arr.length;
       for (let i = 0; i < arr.length; i += 1) { if (isAllowed(arr[i])) { if (n === k) { pos = i; break; } n += 1; } }
       typer.focus({ preventScroll: true });
       try { if (select && pos < arr.length) typer.setSelectionRange(pos, pos + 1); else typer.setSelectionRange(pos, pos); } catch (e) {}
       markCaret();
     }
+    // 영문 자판 상태(한/영 키가 영문)에서 친 글쇠도 2벌식으로 조합해 한글로 넣는다. — 2026-10-26
+    // (한글 자판이면 글쇠가 IME 를 거쳐 들어오므로 여기를 타지 않는다. 영문 상태에서는 전에 글쇠가 소리 없이 버려져 "아무것도 안 써짐"으로 보였다.)
+    const LATIN2JAMO = { q: "ㅂ", w: "ㅈ", e: "ㄷ", r: "ㄱ", t: "ㅅ", y: "ㅛ", u: "ㅕ", i: "ㅑ", o: "ㅐ", p: "ㅔ", a: "ㅁ", s: "ㄴ", d: "ㅇ", f: "ㄹ", g: "ㅎ", h: "ㅗ", j: "ㅓ", k: "ㅏ", l: "ㅣ", z: "ㅋ", x: "ㅌ", c: "ㅊ", v: "ㅍ", b: "ㅠ", n: "ㅜ", m: "ㅡ", Q: "ㅃ", W: "ㅉ", E: "ㄸ", R: "ㄲ", T: "ㅆ", O: "ㅒ", P: "ㅖ" };
+    const CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+    const JUNG = "ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ";
+    const JONG = "ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ";   // 자리 + 1 = 종성 번호
+    const VOWEL_PAIRS = { "ㅗㅏ": "ㅘ", "ㅗㅐ": "ㅙ", "ㅗㅣ": "ㅚ", "ㅜㅓ": "ㅝ", "ㅜㅔ": "ㅞ", "ㅜㅣ": "ㅟ", "ㅡㅣ": "ㅢ" };
+    const JONG_PAIRS = { "ㄱㅅ": "ㄳ", "ㄴㅈ": "ㄵ", "ㄴㅎ": "ㄶ", "ㄹㄱ": "ㄺ", "ㄹㅁ": "ㄻ", "ㄹㅂ": "ㄼ", "ㄹㅅ": "ㄽ", "ㄹㅌ": "ㄾ", "ㄹㅍ": "ㄿ", "ㄹㅎ": "ㅀ", "ㅂㅅ": "ㅄ" };
+    const splitPair = (table, v) => { const key = Object.keys(table).find((k) => table[k] === v); return key ? [key[0], key[1]] : null; };
+    const latin = { on: false, cho: "", jung: "", jong: "", start: 0, len: 0 };
+    const imeNote = document.getElementById("imeNote");
+    function latinText() {
+      if (latin.cho && latin.jung) return String.fromCharCode(0xAC00 + (CHO.indexOf(latin.cho) * 21 + JUNG.indexOf(latin.jung)) * 28 + (latin.jong ? JONG.indexOf(latin.jong) + 1 : 0));
+      return latin.cho || latin.jung || "";
+    }
+    function latinWrite() {
+      const v = typer.value; const text = latinText();
+      typer.value = v.slice(0, latin.start) + text + v.slice(latin.start + latin.len);
+      latin.len = text.length;
+      try { typer.setSelectionRange(latin.start + latin.len, latin.start + latin.len); } catch (e) {}
+      syncFromTyper(); markCaret();
+    }
+    function latinCommit() {
+      if (!latin.on) return;
+      latin.on = false; composing = false; latin.cho = ""; latin.jung = ""; latin.jong = ""; latin.len = 0;
+      syncFromTyper(); markCaret();
+    }
+    function latinNext(cho, jung) {
+      // 지금 글자를 끝내고 바로 뒤에서 새 글자를 시작한다
+      const pos = latin.start + latin.len;
+      latin.cho = cho; latin.jung = jung; latin.jong = ""; latin.start = pos; latin.len = 0;
+      latinWrite();
+    }
+    function latinBegin(cho, jung) {
+      // 커서 자리에서 새 글자를 시작한다(칸을 눌러 글자가 선택돼 있으면 그 글자를 덮어쓴다)
+      const s = typer.selectionStart == null ? typer.value.length : typer.selectionStart;
+      const e = typer.selectionEnd == null ? s : typer.selectionEnd;
+      typer.value = typer.value.slice(0, s) + typer.value.slice(e);
+      latin.on = true; composing = true; latin.start = s; latin.len = 0; latin.cho = cho; latin.jung = jung; latin.jong = "";
+      latinWrite();
+    }
+    function latinKey(ch) {
+      const isVowel = JUNG.includes(ch);
+      if (!latin.on) { latinBegin(isVowel ? "" : ch, isVowel ? ch : ""); return; }
+      if (!isVowel) {
+        if (!latin.jung) latinNext(ch, "");                                             // 자음 뒤 자음(ㄱ,ㄱ)은 새 글자
+        else if (!latin.jong) { if (latin.cho && JONG.includes(ch)) { latin.jong = ch; latinWrite(); } else latinNext(ch, ""); }
+        else { const pair = JONG_PAIRS[latin.jong + ch]; if (pair) { latin.jong = pair; latinWrite(); } else latinNext(ch, ""); }
+      } else if (!latin.jung) { latin.jung = ch; latinWrite(); }
+      else if (!latin.jong) { const pair = VOWEL_PAIRS[latin.jung + ch]; if (pair) { latin.jung = pair; latinWrite(); } else latinNext("", ch); }
+      else {
+        // 받침 뒤에 모음: 받침(또는 겹받침의 뒷글자)이 다음 글자의 첫소리로 넘어간다 (엄+ㅏ → 어마)
+        const sp = splitPair(JONG_PAIRS, latin.jong); const carry = sp ? sp[1] : latin.jong;
+        latin.jong = sp ? sp[0] : ""; latinWrite(); latinNext(carry, ch);
+      }
+    }
+    function latinBackspace() {
+      if (latin.jong) { const sp = splitPair(JONG_PAIRS, latin.jong); latin.jong = sp ? sp[0] : ""; }
+      else if (latin.jung) { const sp = splitPair(VOWEL_PAIRS, latin.jung); latin.jung = sp ? sp[0] : ""; }
+      else latin.cho = "";
+      latinWrite();
+      if (!latin.cho && !latin.jung) latinCommit();
+    }
+    function latinFromKey(ev) {
+      // 영문 글쇠면 그 자모를 돌려준다(없으면 null). 조합 중(IME)·단축키는 제외.
+      if (ev.isComposing || ev.ctrlKey || ev.altKey || ev.metaKey || typeof ev.key !== "string" || ev.key.length !== 1 || !/[a-zA-Z]/.test(ev.key)) return null;
+      const caps = ev.getModifierState && ev.getModifierState("CapsLock");
+      const key = caps && !ev.shiftKey ? ev.key.toLowerCase() : ev.key;
+      return LATIN2JAMO[key] || LATIN2JAMO[key.toLowerCase()] || null;
+    }
+    function showImeNote() {
+      imeNote.hidden = false;
+      imeNote.textContent = "지금 자판이 영문 상태라 친 글쇠를 한글로 바꿔 넣고 있어요. 한/영 키를 한 번 누르면 바로 한글로 써집니다.";
+    }
     function wireTyper() {
-      typer.addEventListener("compositionstart", () => { composing = true; });
+      typer.addEventListener("compositionstart", () => { latinCommit(); composing = true; imeNote.hidden = true; });
       typer.addEventListener("compositionend", () => { composing = false; setTimeout(() => { syncFromTyper(); markCaret(); }, 0); });
       typer.addEventListener("input", () => { syncFromTyper(); markCaret(); });
       typer.addEventListener("keydown", (ev) => {
+        const jamo = latinFromKey(ev);
+        if (jamo) { ev.preventDefault(); latinKey(jamo); showImeNote(); return; }
+        if (latin.on && ev.key === "Backspace") { ev.preventDefault(); latinBackspace(); return; }
+        if (latin.on && !ev.isComposing && !["Shift", "CapsLock", "HangulMode", "Process"].includes(ev.key)) latinCommit();
         if (ev.key === "Enter" && !ev.isComposing) { ev.preventDefault(); document.getElementById("playMine").click(); }
       });
       ["keyup", "click", "select"].forEach((t) => typer.addEventListener(t, markCaret));
       document.addEventListener("selectionchange", () => { if (document.activeElement === typer) markCaret(); });
       typer.addEventListener("focus", () => { kwrap.classList.add("focused"); markCaret(); });
-      typer.addEventListener("blur", () => { kwrap.classList.remove("focused"); });
+      typer.addEventListener("blur", () => { latinCommit(); kwrap.classList.remove("focused"); });
+      // 칸을 누르지 않고 바로 글쇠를 치면(초점이 본문이나 단추에 있을 때) 음표 칸으로 보낸다
+      document.addEventListener("keydown", (ev) => {
+        const a = document.activeElement; const tag = a ? a.tagName : "BODY";
+        if (a === typer || tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || playing) return;
+        if (ev.key === "Process" || ev.key === "-" || latinFromKey(ev) || (ev.key.length === 1 && ev.key >= "가" && ev.key <= "힣")) {
+          placeCaret(charsOf(typer.value).length, false);
+          const jamo = latinFromKey(ev); if (jamo) { ev.preventDefault(); latinKey(jamo); showImeNote(); }
+        }
+      });
       kstrip.addEventListener("click", (ev) => {
         const note = ev.target.closest(".knote"); if (!note || note.classList.contains("rest")) { if (!playing) placeCaret(charsOf(typer.value).length, false); return; }
         const cell = note.querySelector(".kcell"); if (!cell) return;
@@ -1690,15 +1780,16 @@
     });
     stopBtn.addEventListener("click", () => stopPlayback("멈췄습니다."));
     lyricsInput.addEventListener("input", () => { gateBox.hidden = true; refreshStrip(); });
-    lineSelect.addEventListener("change", () => { const ln = Number(lineSelect.value); lyricsInput.value = draftLines[ln] || savedLines[ln] || ""; gateBox.hidden = true; refreshStrip(); });
+    lineSelect.addEventListener("change", () => { latinCommit(); const ln = Number(lineSelect.value); lyricsInput.value = draftLines[ln] || savedLines[ln] || ""; gateBox.hidden = true; refreshStrip(); });
     document.getElementById("toggleText").addEventListener("click", () => {
       const show = lyricsInput.hidden; lyricsInput.hidden = !show;
       document.getElementById("toggleText").textContent = show ? "한 줄 입력 닫기" : "칸 입력이 안 되면 여기를 눌러 한 줄로 쓰기";
       if (show) lyricsInput.focus();
     });
-    document.getElementById("clearCells").addEventListener("click", () => { lyricsInput.value = ""; typer.value = ""; draftLines[Number(lineSelect.value)] = ""; gateBox.hidden = true; refreshStrip(); placeCaret(0, false); });
+    document.getElementById("clearCells").addEventListener("click", () => { latinCommit(); lyricsInput.value = ""; typer.value = ""; draftLines[Number(lineSelect.value)] = ""; gateBox.hidden = true; refreshStrip(); placeCaret(0, false); });
     lyricsInput.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); void checkLyrics(); } });
     refreshStrip();
+    if (window.matchMedia && window.matchMedia("(pointer: fine)").matches) placeCaret(charsOf(typer.value).length, false);
 
     lineSelect.addEventListener("change", updateCaption);
     document.getElementById("checkBtn").addEventListener("click", () => { void checkLyrics(); });
