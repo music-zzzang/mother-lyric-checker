@@ -897,7 +897,7 @@
         ${issues.length ? listHtml(issues) : ""}
         ${ai.explanation ? `<p>${escapeHtml(ai.explanation)}</p>` : ""}
         ${questions.length ? `<h3>✏️ 스스로 고쳐 볼 질문</h3>${listHtml(questions)}` : ""}
-        <p>AI가 가사를 대신 써 주는 것이 아닙니다. 슬래시(/)를 지우고 줄글처럼 읽은 뒤, 선율에 맞춰 직접 불러 보며 고쳐 보세요.</p>
+        <p>AI가 가사를 대신 써 주는 것이 아닙니다. 위의 "줄글로 읽기"처럼 마디를 띄어쓰기로 생각하고 소리 내어 읽은 뒤, 선율에 맞춰 직접 불러 보며 고쳐 보세요.</p>
       `;
     }
 
@@ -922,7 +922,7 @@
       const title = `<h2>🎵 ${lineNum}줄 점검 결과</h2>`;
 
       if (parts.length !== 4) {
-        result.innerHTML = `${title}<div class="message error">/ 표시로 4마디가 되도록 다시 나누어 써 주세요.</div>`;
+        result.innerHTML = `${title}<div class="message error">4마디가 되도록 다시 써 주세요. (한 줄로 쓸 때는 마디를 / 로 나눕니다)</div>`;
         return;
       }
 
